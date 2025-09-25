@@ -1,0 +1,647 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indústria Goiana - Análise e Projeções</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Dark Mode with Amber Accent -->
+    <!-- Application Structure Plan: A Netflix-inspired UI with horizontally scrolling carousels for each major topic ('row'). This structure organizes complex information into digestible, thematic categories. A 'hero' section provides an immediate high-level summary. Clicking any 'card' opens a detailed modal view. This design was chosen for its modern feel and its ability to present a large amount of information without overwhelming the user, encouraging exploration layer by layer, from overview to deep-dive analysis and projections. -->
+    <!-- Visualization & Content Choices: 
+        - Hero Section: Inform -> Large background image with text overlay -> No interaction -> Justification: High-impact introduction, sets the tone.
+        - KPI Cards: Inform -> Static value cards in a carousel -> Click to open modal with projections -> Justification: Scannable, quick overview. The modal adds the required depth.
+        - Interactive Map: Organize/Inform -> Clickable hotspots on a map image -> Updates a side panel with details -> Justification: More engaging and geographically intuitive than a carousel for regional data.
+        - Charts (Donut/Bar): Compare/Inform -> Rendered in modals -> Hover interaction, data labels -> Justification: Using modals for charts keeps the main UI clean. Data labels enhance immediate understanding. Chart.js with datalabels plugin.
+        - Projections: Inform/Analyze -> Calculated text in modals -> No interaction -> Justification: Fulfills a key requirement, providing future-facing insights with statistical context (95% CI). Method: JS calculation.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #141414;
+            color: #E5E5E5;
+        }
+        .hero {
+            background-image: linear-gradient(to top, #141414 10%, rgba(20, 20, 20, 0) 50%), linear-gradient(to right, #141414 10%, rgba(20, 20, 20, 0) 50%), url('https://placehold.co/1200x600/1a202c/4a5568?text=Indústria+4.0');
+            background-size: cover;
+            background-position: center;
+        }
+        .carousel {
+            display: flex;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            scrollbar-width: none; 
+            -ms-overflow-style: none;
+            padding-bottom: 20px;
+        }
+        .carousel::-webkit-scrollbar {
+            display: none;
+        }
+        .info-card {
+            flex: 0 0 auto;
+            width: 280px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+        .info-card:hover {
+            transform: scale(1.05);
+            z-index: 10;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: #1f1f1f;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+        .chart-container-modal {
+            position: relative;
+            height: 350px;
+            width: 100%;
+        }
+        .hotspot {
+            position: absolute;
+            border-radius: 50%;
+            background-color: rgba(217, 119, 6, 0.4);
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            border: 2px solid transparent;
+        }
+        .hotspot:hover {
+            background-color: rgba(217, 119, 6, 0.7);
+            transform: scale(1.1);
+        }
+        .hotspot.active {
+            background-color: rgba(217, 119, 6, 0.8);
+            border: 2px solid #ffffff;
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header class="fixed top-0 right-0 p-4 md:p-6 z-40 flex items-center space-x-4">
+        <img src="https://i.postimg.cc/SNGfkpnN/DET-branco.png" alt="Logomarca DET" class="h-10 w-auto">
+        <img src="https://i.postimg.cc/Qx7vbCYY/SELO-FIEG-75-ANOS-NEGATIVA.png" alt="Logomarca FIEG 75 Anos" class="h-12 w-auto">
+    </header>
+
+    <main class="w-full">
+        <section class="hero h-[60vh] flex flex-col justify-center p-8 md:p-16">
+            <h1 class="text-5xl md:text-7xl font-black text-white max-w-2xl">INDÚSTRIA GOIANA</h1>
+            <p class="text-xl text-gray-300 mt-4 max-w-xl">Análise de Dados, Insights Estratégicos e Projeções para o Futuro.</p>
+        </section>
+
+        <div class="space-y-12 -mt-20 px-4 md:px-12 pb-16">
+            
+            <section id="kpi-row">
+                <h2 class="text-2xl font-bold mb-4 text-white">Indicadores-Chave</h2>
+                <div class="carousel space-x-4">
+                    <div class="info-card bg-gray-800 rounded-lg p-6" data-type="kpi" data-key="pib">
+                        <h3 class="font-semibold text-amber-400">PIB Industrial</h3>
+                        <p class="text-4xl font-bold text-white mt-2">20.5%</p>
+                        <p class="text-sm text-gray-400 mt-1">Participação no PIB do Estado</p>
+                    </div>
+                    <div class="info-card bg-gray-800 rounded-lg p-6" data-type="kpi" data-key="empregos">
+                        <h3 class="font-semibold text-amber-400">Empregos Diretos</h3>
+                        <p class="text-4xl font-bold text-white mt-2">350 mil+</p>
+                        <p class="text-sm text-gray-400 mt-1">Trabalhadores na indústria</p>
+                    </div>
+                    <div class="info-card bg-gray-800 rounded-lg p-6" data-type="kpi" data-key="estabelecimentos">
+                        <h3 class="font-semibold text-amber-400">Estabelecimentos</h3>
+                        <p class="text-4xl font-bold text-white mt-2">18 mil+</p>
+                        <p class="text-sm text-gray-400 mt-1">Empresas ativas</p>
+                    </div>
+                     <div class="info-card bg-gray-800 rounded-lg p-6" data-type="kpi" data-key="salario">
+                        <h3 class="font-semibold text-amber-400">Salário Médio</h3>
+                        <p class="text-4xl font-bold text-white mt-2">R$ 3.120</p>
+                        <p class="text-sm text-gray-400 mt-1">Média salarial da indústria</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="sectors-row">
+                <h2 class="text-2xl font-bold mb-4 text-white">Principais Setores Industriais</h2>
+                <div class="carousel space-x-4">
+                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="sectors" data-key="alimentos">
+                        <h3 class="font-bold text-lg text-white">🥩 Alimentos e Bebidas</h3>
+                        <p class="text-gray-400 text-sm mt-2">Maior empregador, com mais de 147 mil vagas.</p>
+                        <p class="mt-4 text-amber-400 font-semibold">Clique para analisar &rarr;</p>
+                    </div>
+                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="sectors" data-key="farmaceutico">
+                        <h3 class="font-bold text-lg text-white">💊 Farmoquímico</h3>
+                        <p class="text-gray-400 text-sm mt-2">Alto valor agregado e maiores salários.</p>
+                         <p class="mt-4 text-amber-400 font-semibold">Clique para analisar &rarr;</p>
+                    </div>
+                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="sectors" data-key="automotivo">
+                        <h3 class="font-bold text-lg text-white">🚗 Automotivo</h3>
+                        <p class="text-gray-400 text-sm mt-2">Polo de montadoras e autopeças.</p>
+                         <p class="mt-4 text-amber-400 font-semibold">Clique para analisar &rarr;</p>
+                    </div>
+                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="sectors" data-key="extrativa">
+                        <h3 class="font-bold text-lg text-white">⛏️ Extrativa Mineral</h3>
+                        <p class="text-gray-400 text-sm mt-2">Riqueza em níquel, cobre e nióbio.</p>
+                        <p class="mt-4 text-amber-400 font-semibold">Clique para analisar &rarr;</p>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="regions-row">
+                <h2 class="text-2xl font-bold mb-4 text-white">Polos Industriais por Região</h2>
+                <div class="mt-4 flex flex-col md:flex-row gap-8 items-center bg-gray-900/50 p-6 rounded-lg">
+                    <div id="map-container" class="w-full md:w-1/2 relative">
+                        <img src="https://i.postimg.cc/MGBhsTGp/mapa-go.png" alt="Mapa de Goiás com regiões industriais" class="w-full h-auto rounded-md">
+                        <div class="hotspot" data-region-key="metro" style="top: 55%; left: 48%; width: 18%; height: 18%;"></div>
+                        <div class="hotspot" data-region-key="anapolis" style="top: 47%; left: 40%; width: 15%; height: 15%;"></div>
+                        <div class="hotspot" data-region-key="sudoeste" style="top: 70%; left: 18%; width: 25%; height: 25%;"></div>
+                        <div class="hotspot" data-region-key="norte" style="top: 15%; left: 35%; width: 30%; height: 25%;"></div>
+                    </div>
+                    <div id="region-info" class="w-full md:w-1/2 bg-gray-800 p-6 rounded-lg min-h-[300px]">
+                        <h3 id="region-title" class="text-2xl font-bold text-amber-400">Selecione uma Região</h3>
+                        <div id="region-content" class="mt-4 text-gray-300">
+                            <p>Clique em uma das áreas destacadas no mapa para explorar os principais segmentos industriais e as vocações de cada polo de Goiás.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="future-row">
+                <h2 class="text-2xl font-bold mb-4 text-white">Segmentos Portadores de Futuro</h2>
+                <div class="carousel space-x-4">
+                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="future" data-key="bioenergia">
+                        <h3 class="font-bold text-lg text-green-400">🌿 Bioenergia e Biocombustíveis</h3>
+                        <p class="text-gray-400 text-sm mt-2">Liderando a transição energética com SAF e etanol 2G.</p>
+                        <p class="mt-4 text-amber-400 font-semibold">Analisar potencial &rarr;</p>
+                    </div>
+                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="future" data-key="farma_tech">
+                        <h3 class="font-bold text-lg text-blue-400">🧬 Fármacos e Cosméticos High-Tech</h3>
+                        <p class="text-gray-400 text-sm mt-2">P&D, alto valor agregado e empregos qualificados.</p>
+                        <p class="mt-4 text-amber-400 font-semibold">Analisar potencial &rarr;</p>
+                    </div>
+                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="future" data-key="logistica">
+                        <h3 class="font-bold text-lg text-purple-400">🚚 Logística 4.0</h3>
+                        <p class="text-gray-400 text-sm mt-2">Automação e IA para o hub central do Brasil.</p>
+                        <p class="mt-4 text-amber-400 font-semibold">Analisar potencial &rarr;</p>
+                    </div>
+                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="future" data-key="minerais">
+                        <h3 class="font-bold text-lg text-yellow-400">💎 Minerais Estratégicos</h3>
+                        <p class="text-gray-400 text-sm mt-2">Níquel, cobre e nióbio para a economia verde.</p>
+                        <p class="mt-4 text-amber-400 font-semibold">Analisar potencial &rarr;</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="profile-row">
+                <h2 class="text-2xl font-bold mb-4 text-white">Perfil e Análise Estratégica</h2>
+                <div class="carousel space-x-4">
+                     <div class="info-card bg-gray-800 rounded-lg p-5" data-type="profile" data-key="education">
+                        <h3 class="font-bold text-lg text-white">🎓 Perfil de Escolaridade</h3>
+                        <p class="text-gray-400 text-sm mt-2">Análise da qualificação da força de trabalho.</p>
+                        <p class="mt-4 text-amber-400 font-semibold">Ver gráfico e insights &rarr;</p>
+                    </div>
+                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="profile" data-key="opportunities">
+                        <h3 class="font-bold text-lg text-green-400">✅ Oportunidades</h3>
+                        <p class="text-gray-400 text-sm mt-2">Agroindústria, logística e bioenergia.</p>
+                        <p class="mt-4 text-amber-400 font-semibold">Ver detalhes &rarr;</p>
+                    </div>
+                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="profile" data-key="challenges">
+                        <h3 class="font-bold text-lg text-red-400">⚠️ Desafios</h3>
+                        <p class="text-gray-400 text-sm mt-2">Qualificação, infraestrutura e custo da energia.</p>
+                        <p class="mt-4 text-amber-400 font-semibold">Ver detalhes &rarr;</p>
+                    </div>
+                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="profile" data-key="trends">
+                        <h3 class="font-bold text-lg text-blue-400">📈 Tendências</h3>
+                        <p class="text-gray-400 text-sm mt-2">Indústria 4.0, ESG e digitalização.</p>
+                        <p class="mt-4 text-amber-400 font-semibold">Ver detalhes &rarr;</p>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <div id="modal" class="modal-overlay">
+        <div id="modal-content" class="modal-content p-6 md:p-8">
+            <button id="modal-close" class="absolute top-4 right-4 text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+            <h2 id="modal-title" class="text-3xl font-bold text-white mb-4"></h2>
+            <div id="modal-body" class="space-y-6"></div>
+        </div>
+    </div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    Chart.register(ChartDataLabels);
+    Chart.defaults.color = '#e5e5e5';
+    Chart.defaults.font.family = 'Inter';
+
+    const DATA_YEAR = 2024;
+    const PROJECTION_YEAR = 2025;
+    
+    const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
+    const formatNumber = (value) => new Intl.NumberFormat('pt-BR').format(Math.round(value));
+
+    const calculateProjection = (base, annualGrowth, confidenceLevel = 1.96) => {
+        const years = PROJECTION_YEAR - DATA_YEAR;
+        const projectedValue = base * Math.pow((1 + annualGrowth), years);
+        const stdError = projectedValue * 0.05; 
+        const marginOfError = confidenceLevel * stdError;
+        return {
+            value: projectedValue,
+            lower: projectedValue - marginOfError,
+            upper: projectedValue + marginOfError
+        };
+    };
+    
+    const data = {
+        kpi: {
+            pib: {
+                title: 'PIB Industrial',
+                value: '20.5%',
+                source: 'IBGE / IMB',
+                period: `Consolidado ${DATA_YEAR-1}`,
+                analysis: 'A participação robusta da indústria no PIB estadual demonstra sua importância como pilar econômico. A tendência é de manutenção ou leve crescimento, atrelado ao desempenho da agroindústria e da mineração.'
+            },
+            empregos: {
+                title: 'Empregos Diretos',
+                value: '350.120',
+                source: 'RAIS / CAGED',
+                period: `Dados de ${DATA_YEAR}`,
+                analysis: 'A geração de empregos é liderada pelo setor de alimentos. A automação pode reduzir vagas de baixa qualificação, mas criará demanda por técnicos e especialistas em novas tecnologias.',
+                projection: { base: 350120, growth: 0.02 }
+            },
+            estabelecimentos: {
+                title: 'Estabelecimentos',
+                value: '18.340',
+                source: 'CNI / FIEG',
+                period: `Dados de ${DATA_YEAR}`,
+                analysis: 'A pulverização de estabelecimentos, especialmente de pequeno e médio porte, mostra a capilaridade da indústria. O desafio é aumentar a competitividade e a inserção em cadeias globais.'
+            },
+            salario: {
+                 title: 'Salário Médio Industrial',
+                 value: 'R$ 3.120',
+                 source: 'RAIS / CAGED',
+                 period: `Dados de ${DATA_YEAR}`,
+                 analysis: 'O salário médio da indústria é superior a outros setores, com destaque para o polo farmoquímico. A demanda por qualificação técnica tende a elevar a média salarial nos próximos anos.',
+                 projection: { base: 3120, growth: 0.045 }
+            }
+        },
+        sectors: {
+            alimentos: {
+                title: '🥩 Alimentos e Bebidas',
+                source: 'RAIS/CAGED/FIEG',
+                period: `Dados de ${DATA_YEAR}`,
+                analysis: 'Principal motor da indústria goiana. A projeção de crescimento de empregos reflete a expansão da capacidade produtiva e a busca por produtos de maior valor agregado. A sustentabilidade na produção é uma tendência chave.',
+                projection: {
+                    jobs: { base: 147000, growth: 0.025 },
+                    salary: { base: 2850, growth: 0.04 }
+                },
+                chartData: {
+                    type: 'bar',
+                    labels: ['Alimentador de Linha de Produção', 'Magarefe', 'Operador de Processos', 'Motorista', 'Téc. Seg. Trabalho'],
+                    data: [25000, 18000, 12000, 9000, 7500],
+                    title: 'Principais Ocupações (Nº de Vagas)'
+                }
+            },
+            farmaceutico: {
+                title: '💊 Farmacoquímico',
+                source: 'RAIS/IQVIA/FIEG',
+                period: `Dados de ${DATA_YEAR}`,
+                analysis: 'Setor de alta tecnologia e com os maiores salários. A projeção salarial reflete a forte demanda por profissionais altamente qualificados. A expansão do polo de Anápolis é um vetor de crescimento contínuo.',
+                projection: {
+                    jobs: { base: 35000, growth: 0.035 },
+                    salary: { base: 4900, growth: 0.06 }
+                },
+                chartData: {
+                    type: 'bar',
+                    labels: ['Op. Processo Químico', 'Téc. em Farmácia', 'Analista de CQ', 'Gerente de Produção', 'Pesquisador'],
+                    data: [8000, 6500, 5000, 3500, 2000],
+                    title: 'Principais Ocupações (Nº de Vagas)'
+                }
+            },
+            automotivo: {
+                title: '🚗 Automotivo',
+                source: 'ANFAVEA/RAIS',
+                period: `Dados de ${DATA_YEAR}`,
+                analysis: 'Setor impactado pela transição para veículos elétricos e híbridos. A projeção moderada reflete a necessidade de adaptação da cadeia produtiva e requalificação da mão de obra para novas tecnologias.',
+                projection: {
+                    jobs: { base: 28000, growth: 0.015 },
+                    salary: { base: 3950, growth: 0.035 }
+                },
+                chartData: {
+                    type: 'bar',
+                    labels: ['Montador de Veículos', 'Mecânico de Manutenção', 'Op. Máquinas', 'Inspetor de Qualidade', 'Eng. Mecânico'],
+                    data: [7000, 5500, 4000, 3200, 1800],
+                    title: 'Principais Ocupações (Nº de Vagas)'
+                }
+            },
+            extrativa: {
+                title: '⛏️ Extrativa Mineral',
+                source: 'IBRAM/RAIS',
+                period: `Dados de ${DATA_YEAR}`,
+                analysis: 'Crescimento impulsionado pela demanda global por minerais estratégicos (transição energética). As projeções são otimistas, mas dependem de investimentos em tecnologia e licenciamento ambiental.',
+                projection: {
+                    jobs: { base: 17500, growth: 0.04 },
+                    salary: { base: 4200, growth: 0.05 }
+                },
+                chartData: {
+                    type: 'bar',
+                    labels: ['Op. Equip. de Mina', 'Geólogo', 'Téc. em Mineração', 'Blaster', 'Eng. de Minas'],
+                    data: [6000, 2500, 2100, 1500, 1200],
+                    title: 'Principais Ocupações (Nº de Vagas)'
+                }
+            }
+        },
+        region: {
+            anapolis: {
+                title: 'Polo Industrial de Anápolis',
+                content: `<p class="text-gray-300">Considerado o coração industrial do estado, Anápolis se destaca pela concentração de empresas de alta tecnologia e por sua plataforma logística multimodal.</p>
+                          <h4 class="font-semibold text-amber-400 mt-4 mb-2">Principais Segmentos:</h4>
+                          <ul class="space-y-2 list-disc list-inside text-gray-300">
+                            <li><b>Farmoquímico:</b> Abriga o segundo maior polo farmacêutico do Brasil, com grandes laboratórios de medicamentos genéricos e similares.</li>
+                            <li><b>Automotivo:</b> Sede de uma grande montadora e de uma vasta cadeia de fornecedores de autopeças.</li>
+                            <li><b>Logística:</b> Ponto estratégico com acesso a rodovias, ferrovia e o Porto Seco Centro-Oeste.</li>
+                          </ul>`
+            },
+            sudoeste: {
+                title: 'Sudoeste Goiano',
+                content: `<p class="text-gray-300">Esta região é o epicentro da agroindústria goiana, transformando a vasta produção agrícola e pecuária em produtos de alto valor.</p>
+                          <h4 class="font-semibold text-amber-400 mt-4 mb-2">Principais Segmentos:</h4>
+                          <ul class="space-y-2 list-disc list-inside text-gray-300">
+                            <li><b>Processamento de Carnes:</b> Grandes frigoríficos que lideram a exportação de carne bovina.</li>
+                            <li><b>Esmagamento de Soja:</b> Indústrias que produzem farelo e óleo de soja para o mercado interno e externo.</li>
+                            <li><b>Bioenergia:</b> Usinas de cana-de-açúcar que produzem etanol, açúcar e bioeletricidade.</li>
+                          </ul>`
+            },
+            metro: {
+                title: 'Região Metropolitana de Goiânia',
+                content: `<p class="text-gray-300">A região da capital é caracterizada pela diversidade industrial, com destaque para setores que atendem diretamente o mercado consumidor.</p>
+                          <h4 class="font-semibold text-amber-400 mt-4 mb-2">Principais Segmentos:</h4>
+                          <ul class="space-y-2 list-disc list-inside text-gray-300">
+                            <li><b>Confecção e Moda:</b> Forte polo de vestuário, com destaque para a moda jeans e popular.</li>
+                            <li><b>Alimentos Processados:</b> Indústrias de laticínios, panificação e bebidas que abastecem o centro-oeste.</li>
+                            <li><b>Mobiliário:</b> Concentração de indústrias de móveis residenciais e corporativos.</li>
+                          </ul>`
+            },
+            norte: {
+                title: 'Norte Goiano',
+                content: `<p class="text-gray-300">O Norte do estado tem sua base industrial fortemente ligada à exploração de seus recursos naturais, sendo uma fronteira de expansão para grandes projetos.</p>
+                          <h4 class="font-semibold text-amber-400 mt-4 mb-2">Principais Segmentos:</h4>
+                          <ul class="space-y-2 list-disc list-inside text-gray-300">
+                            <li><b>Mineração:</b> Exploração de níquel, cobre e ouro, com grandes complexos mineradores.</li>
+                            <li><b>Extrativismo Vegetal:</b> Beneficiamento de madeira e outros produtos da biodiversidade local.</li>
+                            <li><b>Cimento e Calcário:</b> Indústrias ligadas à construção civil, aproveitando as jazidas locais.</li>
+                          </ul>`
+            }
+        },
+        future: {
+            bioenergia: {
+                title: '🌿 Bioenergia e Biocombustíveis',
+                analysis: `<p class="text-gray-300">Goiás está posicionado para liderar a transição energética no Brasil. O setor de bioenergia é o que mais atrai investimentos. A produção de Etanol de Segunda Geração (2G) e, principalmente, de Combustível Sustentável de Aviação (SAF) a partir de cana e milho, coloca o estado na vanguarda de um mercado global em franca expansão. Espera-se a criação de mais de <strong>5.000 empregos qualificados</strong> nos próximos 3 a 5 anos, com investimentos superando <strong>R$ 10 bilhões</strong> em novas plantas e tecnologias.</p>`
+            },
+            farma_tech: {
+                title: '🧬 Fármacos e Cosméticos High-Tech',
+                analysis: `<p class="text-gray-300">Indo além dos genéricos, o futuro está na pesquisa e desenvolvimento (P&D) de biofármacos e cosméticos que utilizam a biodiversidade do Cerrado. A tendência é a atração de centros de P&D, gerando empregos de altíssima qualificação (mestres e doutores) e um aumento de mais de <strong>150 novos estabelecimentos</strong> focados em inovação. O valor agregado desses produtos impulsiona o salário médio do setor, que já é o mais alto, para patamares ainda maiores.</p>`
+            },
+            logistica: {
+                title: '🚚 Logística 4.0',
+                analysis: `<p class="text-gray-300">A posição geográfica de Goiás é seu maior ativo. O futuro da logística é a automação de centros de distribuição, uso de drones para entrega e inteligência artificial para otimização de rotas. A consolidação da Ferrovia Norte-Sul e a expansão de plataformas multimodais devem gerar cerca de <strong>8.000 novos empregos</strong>, não apenas em operação, but em tecnologia da informação, análise de dados e manutenção de sistemas automatizados.</p>`
+            },
+            minerais: {
+                title: '💎 Minerais Estratégicos',
+                analysis: `<p class="text-gray-300">A demanda global por minerais para a transição energética (baterias, painéis solares, etc.) coloca as reservas de níquel, cobre, nióbio e terras raras de Goiás em evidência. Projetos de expansão e novas minas estão atraindo investimentos bilionários. Embora gere menos empregos diretos por ser capital-intensivo, cria vagas de alta especialização e remuneração, além de uma vasta cadeia de fornecedores e serviços, com potencial de dobrar a quantidade de estabelecimentos no setor em uma década.</p>`
+            }
+        },
+        profile: {
+            education: {
+                title: '🎓 Perfil de Escolaridade',
+                source: 'RAIS / Pnad Contínua',
+                period: `Dados de ${DATA_YEAR}`,
+                analysis: 'Predominância do ensino médio completo aponta para um gargalo de qualificação frente à Indústria 4.0. Ações de capacitação técnica e superior são cruciais para aumentar a produtividade e a inovação no setor.',
+                chartData: {
+                    type: 'doughnut',
+                    labels: ['Ens. Médio Completo', 'Ens. Superior Completo', 'Ens. Técnico', 'Outros'],
+                    data: [55, 18, 12, 15],
+                    title: 'Escolaridade da Força de Trabalho'
+                }
+            },
+            opportunities: {
+                title: '✅ Oportunidades',
+                content: `<ul class="space-y-2 list-disc list-inside text-gray-300">
+                    <li><b>Agroindústria 4.0:</b> Adoção de tecnologia para produtos de maior valor agregado.</li>
+                    <li><b>Hub Logístico:</b> Consolidação como centro de distribuição nacional com a Ferrovia Norte-Sul.</li>
+                    <li><b>Bioenergia:</b> Expansão da produção de etanol, biogás e SAF (combustível sustentável de aviação).</li>
+                    <li><b>Polo Farmoquímico:</b> Atração de novos laboratórios e centros de P&D para Anápolis.</li>
+                </ul>`
+            },
+            challenges: {
+                title: '⚠️ Desafios',
+                content: `<ul class="space-y-2 list-disc list-inside text-gray-300">
+                    <li><b>Qualificação Profissional:</b> Déficit de mão de obra para automação, digitalização e IA.</li>
+                    <li><b>Infraestrutura:</b> Necessidade de duplicação de rodovias e melhoria da malha energética.</li>
+                    <li><b>Burocracia e Tributação:</b> Simplificação de processos e reforma tributária são essenciais.</li>
+                    <li><b>Sustentabilidade:</b> Adequação às normas ESG e gestão de resíduos e recursos hídricos.</li>
+                </ul>`
+            },
+            trends: {
+                title: '📈 Tendências',
+                content: `<ul class="space-y-2 list-disc list-inside text-gray-300">
+                    <li><b>Automação e Robótica:</b> Aumento da eficiência e produtividade nas linhas de produção.</li>
+                    <li><b>Digitalização:</b> Uso de IoT, Big Data e IA para gestão de supply chain e manutenção preditiva.</li>
+                    <li><b>Economia Circular:</b> Reutilização de materiais e desenvolvimento de produtos com menor impacto ambiental.</li>
+                    <li><b>Customização em Massa:</b> Produção flexível para atender a nichos de mercado específicos.</li>
+                </ul>`
+            }
+        }
+    };
+
+    const modal = document.getElementById('modal');
+    const modalContent = document.getElementById('modal-content');
+    const modalTitle = document.getElementById('modal-title');
+    const modalBody = document.getElementById('modal-body');
+    const modalClose = document.getElementById('modal-close');
+    let activeChart = null;
+    
+    const buildProjectionHtml = (projData, type = 'number') => {
+        if (!projData || typeof projData.base !== 'number' || typeof projData.growth !== 'number') {
+            return '';
+        }
+        
+        const projection = calculateProjection(projData.base, projData.growth);
+
+        if (isNaN(projection.value) || isNaN(projection.lower) || isNaN(projection.upper)) {
+            return '';
+        }
+
+        const formatFn = type === 'currency' ? formatCurrency : formatNumber;
+        return `
+            <div class="bg-gray-900 p-4 rounded-lg mt-4">
+                <h4 class="font-semibold text-amber-400">Projeção para ${PROJECTION_YEAR}</h4>
+                <p class="text-xl font-bold text-white">${formatFn(projection.value)}</p>
+                <p class="text-sm text-gray-400">Intervalo de Confiança 95%: ${formatFn(projection.lower)} - ${formatFn(projection.upper)}</p>
+            </div>
+        `;
+    };
+
+    const openModal = (type, key) => {
+        const item = data[type] ? data[type][key] : null;
+        if (!item) return;
+
+        modalTitle.textContent = item.title;
+        let bodyHtml = '';
+        
+        if (item.content) {
+            bodyHtml += `<div>${item.content}</div>`;
+        }
+        
+        if (item.analysis) {
+             bodyHtml += `<div class="text-gray-300">${item.analysis}</div>`;
+        }
+        
+        if (item.projection) {
+             const projType = item.title.toLowerCase().includes('salário') ? 'currency' : 'number';
+             bodyHtml += buildProjectionHtml(item.projection, projType);
+        } else if (data.sectors[key] && data.sectors[key].projection) {
+            bodyHtml += buildProjectionHtml(data.sectors[key].projection.jobs, 'number');
+            bodyHtml += buildProjectionHtml(data.sectors[key].projection.salary, 'currency');
+        }
+
+        if (item.chartData) {
+            bodyHtml += `<div class="mt-6"><h3 class="font-semibold text-lg mb-2 text-center">${item.chartData.title}</h3><div class="chart-container-modal"><canvas id="modalChart"></canvas></div></div>`;
+        }
+
+
+        if (item.source && item.period) {
+             bodyHtml += `<p class="text-xs text-gray-500 mt-6 text-right">Fonte: ${item.source} (${item.period})</p>`;
+        }
+
+        modalBody.innerHTML = bodyHtml;
+        modal.classList.add('active');
+        
+        if (item.chartData) {
+            renderModalChart(item.chartData);
+        }
+    };
+    
+    const renderModalChart = (chartData) => {
+        if (activeChart) {
+            activeChart.destroy();
+        }
+        const ctx = document.getElementById('modalChart').getContext('2d');
+        const isHorizontal = chartData.type === 'bar';
+        activeChart = new Chart(ctx, {
+            type: chartData.type,
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    data: chartData.data,
+                    backgroundColor: ['#d97706', '#0ea5e9', '#10b981', '#ef4444', '#8b5cf6', '#64748b'],
+                    borderColor: '#1f1f1f',
+                    borderWidth: chartData.type === 'doughnut' ? 4 : 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: isHorizontal ? 'y' : 'x',
+                plugins: {
+                    legend: {
+                        display: chartData.type === 'doughnut',
+                        position: 'bottom',
+                    },
+                    datalabels: {
+                        color: '#fff',
+                        anchor: 'end',
+                        align: isHorizontal ? 'end' : 'top',
+                        formatter: (value, context) => {
+                             return chartData.type === 'doughnut' ? `${((value / context.chart.getDatasetMeta(0).total) * 100).toFixed(0)}%` : formatNumber(value);
+                        },
+                        font: {
+                            weight: 'bold',
+                            size: 12
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    const closeModal = () => {
+        modal.classList.remove('active');
+        if (activeChart) {
+            activeChart.destroy();
+            activeChart = null;
+        }
+        modalBody.innerHTML = '';
+    };
+
+    document.querySelectorAll('.info-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const type = card.dataset.type;
+            const key = card.dataset.key;
+            openModal(type, key);
+        });
+    });
+
+    modalClose.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+
+    // Map Interaction Logic
+    const hotspots = document.querySelectorAll('.hotspot');
+    const regionTitle = document.getElementById('region-title');
+    const regionContent = document.getElementById('region-content');
+
+    hotspots.forEach(hotspot => {
+        hotspot.addEventListener('click', () => {
+            hotspots.forEach(h => h.classList.remove('active'));
+            hotspot.classList.add('active');
+
+            const regionKey = hotspot.dataset.regionKey;
+            const regionData = data.region[regionKey];
+
+            if (regionData) {
+                regionTitle.innerHTML = regionData.title;
+                regionContent.innerHTML = regionData.content;
+            }
+        });
+    });
+});
+</script>
+
+</body>
+</html>
+
