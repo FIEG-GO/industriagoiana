@@ -4,644 +4,808 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Indústria Goiana - Análise e Projeções</title>
+    <title>Raio-X da Indústria Goiana 6.0 (Bilingual)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
-    <!-- Chosen Palette: Dark Mode with Amber Accent -->
-    <!-- Application Structure Plan: A Netflix-inspired UI with horizontally scrolling carousels for each major topic ('row'). This structure organizes complex information into digestible, thematic categories. A 'hero' section provides an immediate high-level summary. Clicking any 'card' opens a detailed modal view. This design was chosen for its modern feel and its ability to present a large amount of information without overwhelming the user, encouraging exploration layer by layer, from overview to deep-dive analysis and projections. -->
-    <!-- Visualization & Content Choices: 
-        - Hero Section: Inform -> Large background image with text overlay -> No interaction -> Justification: High-impact introduction, sets the tone.
-        - KPI Cards: Inform -> Static value cards in a carousel -> Click to open modal with projections -> Justification: Scannable, quick overview. The modal adds the required depth.
-        - Interactive Map: Organize/Inform -> Clickable hotspots on a map image -> Updates a side panel with details -> Justification: More engaging and geographically intuitive than a carousel for regional data.
-        - Charts (Donut/Bar): Compare/Inform -> Rendered in modals -> Hover interaction, data labels -> Justification: Using modals for charts keeps the main UI clean. Data labels enhance immediate understanding. Chart.js with datalabels plugin.
-        - Projections: Inform/Analyze -> Calculated text in modals -> No interaction -> Justification: Fulfills a key requirement, providing future-facing insights with statistical context (95% CI). Method: JS calculation.
-    -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #141414;
-            color: #E5E5E5;
+            background-color: #f0f4f8;
+            color: #334155;
         }
-        .hero {
-            background-image: linear-gradient(to top, #141414 10%, rgba(20, 20, 20, 0) 50%), linear-gradient(to right, #141414 10%, rgba(20, 20, 20, 0) 50%), url('https://placehold.co/1200x600/1a202c/4a5568?text=Indústria+4.0');
-            background-size: cover;
-            background-position: center;
-        }
-        .carousel {
+        .carousel-container {
             display: flex;
             overflow-x: auto;
-            scroll-behavior: smooth;
-            scrollbar-width: none; 
-            -ms-overflow-style: none;
-            padding-bottom: 20px;
+            scroll-snap-type: x mandatory;
+            gap: 1.5rem;
+            padding-bottom: 1.5rem;
+            scrollbar-width: thin;
+            scrollbar-color: #0077b6 #e0e0e0;
         }
-        .carousel::-webkit-scrollbar {
-            display: none;
+        .carousel-container::-webkit-scrollbar {
+            height: 8px;
         }
-        .info-card {
-            flex: 0 0 auto;
-            width: 280px;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            cursor: pointer;
+        .carousel-container::-webkit-scrollbar-thumb {
+            background-color: #0077b6;
+            border-radius: 10px;
         }
-        .info-card:hover {
-            transform: scale(1.05);
-            z-index: 10;
+        .carousel-item {
+            scroll-snap-align: start;
+            flex: 0 0 clamp(320px, 80%, 480px);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
         }
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 50;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
+        .carousel-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
         }
-        .modal-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
-        .modal-content {
-            background-color: #1f1f1f;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 800px;
-            max-height: 90vh;
-            overflow-y: auto;
-            transform: scale(0.95);
-            transition: transform 0.3s ease;
-        }
-        .modal-overlay.active .modal-content {
-            transform: scale(1);
-        }
-        .chart-container-modal {
+        .chart-container {
             position: relative;
-            height: 350px;
             width: 100%;
+            height: 300px;
+            max-height: 350px;
         }
-        .hotspot {
-            position: absolute;
-            border-radius: 50%;
-            background-color: rgba(217, 119, 6, 0.4);
-            cursor: pointer;
-            transition: all 0.2s ease-in-out;
-            border: 2px solid transparent;
+        .section-title-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
         }
-        .hotspot:hover {
-            background-color: rgba(217, 119, 6, 0.7);
-            transform: scale(1.1);
+        .section-title {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: #003366;
+            border-left: 4px solid #005a9c;
+            padding-left: 1rem;
         }
-        .hotspot.active {
-            background-color: rgba(217, 119, 6, 0.8);
-            border: 2px solid #ffffff;
-            transform: scale(1.1);
+        .source-text {
+            text-align: right;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 0.5rem;
+            font-style: italic;
+        }
+        .lang-toggle button {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            font-weight: 600;
+            font-size: 0.75rem;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .lang-toggle .active {
+            background-color: #005a9c;
+            color: white;
+        }
+        .lang-toggle .inactive {
+            background-color: #e2e8f0;
+            color: #475569;
         }
     </style>
 </head>
 <body class="antialiased">
 
-    <header class="fixed top-0 right-0 p-4 md:p-6 z-40 flex items-center space-x-4">
-        <img src="https://i.postimg.cc/SNGfkpnN/DET-branco.png" alt="Logomarca DET" class="h-10 w-auto">
-        <img src="https://i.postimg.cc/Qx7vbCYY/SELO-FIEG-75-ANOS-NEGATIVA.png" alt="Logomarca FIEG 75 Anos" class="h-12 w-auto">
+    <header class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-extrabold text-[#005a9c]" data-translate-key="header.title">🏭 Raio-X da Indústria Goiana 5.0</h1>
+                <p class="text-slate-500 mt-1" data-translate-key="header.subtitle">Uma análise interativa sobre os desafios e oportunidades do setor.</p>
+            </div>
+            <img src="https://i.postimg.cc/x1pYp13c/det-fieg.png" alt="Logo FIEG" class="h-16 hidden sm:block">
+        </div>
     </header>
 
-    <main class="w-full">
-        <section class="hero h-[60vh] flex flex-col justify-center p-8 md:p-16">
-            <h1 class="text-5xl md:text-7xl font-black text-white max-w-2xl">INDÚSTRIA GOIANA</h1>
-            <p class="text-xl text-gray-300 mt-4 max-w-xl">Análise de Dados, Insights Estratégicos e Projeções para o Futuro.</p>
+    <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-12">
+
+        <section id="visao-geral">
+            <div class="section-title-wrapper">
+                <h2 class="section-title" data-translate-key="s1.title">Visão Geral e Dinamismo Econômico</h2>
+                <div class="lang-toggle" data-section="s1">
+                    <button class="active" data-lang="pt">PT</button> | <button class="inactive" data-lang="en">EN</button>
+                </div>
+            </div>
+            <div class="carousel-container">
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s1.c1.title">Indicadores-Chave</h3>
+                    <div class="space-y-4">
+                        <div class="text-center bg-slate-100 p-4 rounded-lg">
+                            <span class="block text-4xl font-extrabold text-[#005a9c]">21,7%</span>
+                            <span class="block text-slate-600 mt-1 font-semibold" data-translate-key="s1.c1.kpi1">Participação no PIB Estadual</span>
+                        </div>
+                        <div class="text-center bg-slate-100 p-4 rounded-lg">
+                            <span class="block text-4xl font-extrabold text-[#005a9c]">+399 mil</span>
+                            <span class="block text-slate-600 mt-1 font-semibold" data-translate-key="s1.c1.kpi2">Empregos Formais Diretos</span>
+                        </div>
+                    </div>
+                    <p class="source-text" data-translate-key="s1.c1.source">Fonte: IBGE (2022), RAIS (2023).</p>
+                </div>
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6 flex flex-col">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s1.c2.title">Crescimento Acima da Média</h3>
+                    <p class="text-sm text-slate-500 mb-4 flex-shrink-0" data-translate-key="s1.c2.p1">A indústria goiana tem demonstrado resiliência e um crescimento superior à média nacional, consolidando sua posição estratégica.</p>
+                    <div class="flex-grow chart-container">
+                        <canvas id="growthChart"></canvas>
+                    </div>
+                    <p class="source-text" data-translate-key="s1.c2.source">Fonte: FIEG/IMB. Período: 2021-2024.</p>
+                </div>
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s1.c3.title">💡 Análise Estratégica</h3>
+                    <div class="bg-[#caf0f8]/50 border-l-4 border-[#00b4d8] p-5 rounded-r-lg space-y-4 h-full flex flex-col justify-center">
+                        <p class="text-slate-800" data-translate-key="s1.c3.p1">O desempenho robusto da indústria funciona como um motor de estabilidade e diversificação para a economia do estado, reduzindo a dependência da volatilidade do agronegócio.</p>
+                        <p class="text-slate-800" data-translate-key="s1.c3.p2"><strong class="font-semibold text-[#003366]" data-translate-key="s1.c3.p2.strong">Conexão com o Mapa Estratégico:</strong> Este dinamismo contribui para a missão de "promover o desenvolvimento sustentável e a competitividade da indústria brasileira", posicionando Goiás como um pilar de crescimento nacional.</p>
+                    </div>
+                </div>
+            </div>
         </section>
 
-        <div class="space-y-12 -mt-20 px-4 md:px-12 pb-16">
-            
-            <section id="kpi-row">
-                <h2 class="text-2xl font-bold mb-4 text-white">Indicadores-Chave</h2>
-                <div class="carousel space-x-4">
-                    <div class="info-card bg-gray-800 rounded-lg p-6" data-type="kpi" data-key="pib">
-                        <h3 class="font-semibold text-amber-400">PIB Industrial</h3>
-                        <p class="text-4xl font-bold text-white mt-2">20.5%</p>
-                        <p class="text-sm text-gray-400 mt-1">Participação no PIB do Estado</p>
+        <section id="futuro-setores">
+            <div class="section-title-wrapper">
+                <h2 class="section-title" data-translate-key="s2.title">Segmentos Portadores de Futuro</h2>
+                <div class="lang-toggle" data-section="s2">
+                    <button class="active" data-lang="pt">PT</button> | <button class="inactive" data-lang="en">EN</button>
+                </div>
+            </div>
+            <div class="carousel-container">
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6 flex flex-col">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s2.c1.title">Força de Trabalho por Setor</h3>
+                    <p class="text-sm text-slate-500 mb-4 flex-shrink-0" data-translate-key="s2.c1.p1">Alimentos e Construção lideram a geração de empregos, mas setores de alto valor agregado como Farmacêutico e Mineração mostram força.</p>
+                    <div class="flex-grow chart-container">
+                        <canvas id="futureSectorsJobsChart"></canvas>
                     </div>
-                    <div class="info-card bg-gray-800 rounded-lg p-6" data-type="kpi" data-key="empregos">
-                        <h3 class="font-semibold text-amber-400">Empregos Diretos</h3>
-                        <p class="text-4xl font-bold text-white mt-2">350 mil+</p>
-                        <p class="text-sm text-gray-400 mt-1">Trabalhadores na indústria</p>
+                    <p class="source-text" data-translate-key="s2.c1.source">Fonte: RAIS. Período: Dezembro/2023.</p>
+                </div>
+                 <div class="carousel-item bg-white rounded-xl shadow-lg p-6 flex flex-col">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s2.c2.title">Base Empresarial por Setor</h3>
+                    <p class="text-sm text-slate-500 mb-4 flex-shrink-0" data-translate-key="s2.c2.p1">Construção e Vestuário possuem o maior número de estabelecimentos, evidenciando uma base pulverizada de PMEs.</p>
+                    <div class="flex-grow chart-container">
+                        <canvas id="futureSectorsEstablishmentsChart"></canvas>
                     </div>
-                    <div class="info-card bg-gray-800 rounded-lg p-6" data-type="kpi" data-key="estabelecimentos">
-                        <h3 class="font-semibold text-amber-400">Estabelecimentos</h3>
-                        <p class="text-4xl font-bold text-white mt-2">18 mil+</p>
-                        <p class="text-sm text-gray-400 mt-1">Empresas ativas</p>
-                    </div>
-                     <div class="info-card bg-gray-800 rounded-lg p-6" data-type="kpi" data-key="salario">
-                        <h3 class="font-semibold text-amber-400">Salário Médio</h3>
-                        <p class="text-4xl font-bold text-white mt-2">R$ 3.120</p>
-                        <p class="text-sm text-gray-400 mt-1">Média salarial da indústria</p>
+                    <p class="source-text" data-translate-key="s2.c2.source">Fonte: RAIS. Período: Dezembro/2023.</p>
+                </div>
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s2.c3.title">Ciclo de Investimentos Recentes</h3>
+                     <p class="text-slate-600 mb-4" data-translate-key="s2.c3.p1">Goiás atrai grandes aportes que modernizam e diversificam seu parque industrial, com destaque para a transição energética e a bioeconomia.</p>
+                     <ul class="space-y-3 text-slate-700">
+                        <li class="flex items-start" data-translate-key="s2.c3.li1"><span class="text-xl mr-3">🌾</span><div><strong class="font-semibold">Sucroenergético:</strong> +R$ 3,5 bilhões em usinas de Etanol de 2ª Geração (2G) e biogás.</div></li>
+                        <li class="flex items-start" data-translate-key="s2.c3.li2"><span class="text-xl mr-3">🚗</span><div><strong class="font-semibold">Automotivo:</strong> R$ 3 bilhões para produção de veículos elétricos e híbridos em Catalão.</div></li>
+                        <li class="flex items-start" data-translate-key="s2.c3.li3"><span class="text-xl mr-3">💊</span><div><strong class="font-semibold">Farmacêutico:</strong> R$ 1,2 bilhão na expansão de plantas de produção e novos centros de P&D em Anápolis.</div></li>
+                        <li class="flex items-start" data-translate-key="s2.c3.li4"><span class="text-xl mr-3">⛏️</span><div><strong class="font-semibold">Mineração:</strong> +R$ 2 bilhões em projetos de terras-raras e fertilizantes fosfatados.</div></li>
+                    </ul>
+                     <p class="source-text" data-translate-key="s2.c3.source">Fonte: Anúncios governamentais e empresariais. Período: 2024-2025.</p>
+                </div>
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s2.c4.title">💡 Rota Estratégica de Futuro</h3>
+                    <div class="bg-[#caf0f8]/50 border-l-4 border-[#00b4d8] p-5 rounded-r-lg space-y-4 h-full flex flex-col justify-center">
+                        <p class="text-slate-800" data-translate-key="s2.c4.p1">O Estado deve focar em políticas que fortaleçam os elos entre esses setores, criando um ecossistema de inovação e sustentabilidade.</p>
+                        <p class="text-slate-800" data-translate-key="s2.c4.p2"><strong class="font-semibold text-[#003366]" data-translate-key="s2.c4.p2.strong">Conexão com o Mapa Estratégico:</strong> Os investimentos alinham Goiás aos fatores de <strong class="text-[#005a9c]" data-translate-key="s2.c4.p2.s1">Baixo Carbono (Fator 3)</strong> com o setor sucroenergético, <strong class="text-[#005a9c]" data-translate-key="s2.c4.p2.s2">Tecnologia e Inovação (Fator 6)</strong> com os polos farmacêutico e automotivo, e <strong class="text-[#005a9c]" data-translate-key="s2.c4.p2.s3">Recursos Naturais (Fator 3)</strong> com a mineração estratégica. A política industrial deve ser a de adensar essas cadeias produtivas.</p>
                     </div>
                 </div>
-            </section>
+            </div>
+        </section>
 
-            <section id="sectors-row">
-                <h2 class="text-2xl font-bold mb-4 text-white">Principais Setores Industriais</h2>
-                <div class="carousel space-x-4">
-                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="sectors" data-key="alimentos">
-                        <h3 class="font-bold text-lg text-white">🥩 Alimentos e Bebidas</h3>
-                        <p class="text-gray-400 text-sm mt-2">Maior empregador, com mais de 147 mil vagas.</p>
-                        <p class="mt-4 text-amber-400 font-semibold">Clique para analisar &rarr;</p>
+        <section id="estrutura">
+            <div class="section-title-wrapper">
+                <h2 class="section-title" data-translate-key="s3.title">Estrutura Empresarial e Produtividade</h2>
+                <div class="lang-toggle" data-section="s3">
+                    <button class="active" data-lang="pt">PT</button> | <button class="inactive" data-lang="en">EN</button>
+                </div>
+            </div>
+            <div class="carousel-container">
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6 flex flex-col">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s3.c1.title">Perfil: Empresas vs. Empregos</h3>
+                    <p class="text-sm text-slate-500 mb-4 flex-shrink-0" data-translate-key="s3.c1.p1">A base industrial é ampla, com PMEs dominando em número. No entanto, a geração de empregos é concentrada nas grandes corporações.</p>
+                    <div class="flex-grow chart-container">
+                        <canvas id="companySizeChart"></canvas>
                     </div>
-                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="sectors" data-key="farmaceutico">
-                        <h3 class="font-bold text-lg text-white">💊 Farmoquímico</h3>
-                        <p class="text-gray-400 text-sm mt-2">Alto valor agregado e maiores salários.</p>
-                         <p class="mt-4 text-amber-400 font-semibold">Clique para analisar &rarr;</p>
-                    </div>
-                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="sectors" data-key="automotivo">
-                        <h3 class="font-bold text-lg text-white">🚗 Automotivo</h3>
-                        <p class="text-gray-400 text-sm mt-2">Polo de montadoras e autopeças.</p>
-                         <p class="mt-4 text-amber-400 font-semibold">Clique para analisar &rarr;</p>
-                    </div>
-                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="sectors" data-key="extrativa">
-                        <h3 class="font-bold text-lg text-white">⛏️ Extrativa Mineral</h3>
-                        <p class="text-gray-400 text-sm mt-2">Riqueza em níquel, cobre e nióbio.</p>
-                        <p class="mt-4 text-amber-400 font-semibold">Clique para analisar &rarr;</p>
+                    <p class="source-text" data-translate-key="s3.c1.source">Fonte: RAIS. Período: Dezembro/2023.</p>
+                </div>
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s3.c2.title">O Desafio da Produtividade</h3>
+                     <p class="text-slate-600 mb-4" data-translate-key="s3.c2.p1">Existe um hiato significativo de produtividade entre as grandes e as pequenas indústrias. Superar essa lacuna é essencial para o fortalecimento de toda a cadeia produtiva.</p>
+                     <div class="text-center bg-red-100/60 border border-red-200 p-4 rounded-lg">
+                        <span class="block text-slate-600 uppercase text-sm font-bold tracking-wider" data-translate-key="s3.c2.kpi1">Hiato de Escala</span>
+                        <span class="block text-3xl font-extrabold text-red-600 mt-2">~90%</span>
+                        <span class="block text-slate-600 mt-1 font-semibold" data-translate-key="s3.c2.kpi2">dos empregos estão em apenas 24% das empresas (Pequenas, Médias e Grandes).</span>
                     </div>
                 </div>
-            </section>
-            
-            <section id="regions-row">
-                <h2 class="text-2xl font-bold mb-4 text-white">Polos Industriais por Região</h2>
-                <div class="mt-4 flex flex-col md:flex-row gap-8 items-center bg-gray-900/50 p-6 rounded-lg">
-                    <div id="map-container" class="w-full md:w-1/2 relative">
-                        <img src="https://i.postimg.cc/MGBhsTGp/mapa-go.png" alt="Mapa de Goiás com regiões industriais" class="w-full h-auto rounded-md">
-                        <div class="hotspot" data-region-key="metro" style="top: 55%; left: 48%; width: 18%; height: 18%;"></div>
-                        <div class="hotspot" data-region-key="anapolis" style="top: 47%; left: 40%; width: 15%; height: 15%;"></div>
-                        <div class="hotspot" data-region-key="sudoeste" style="top: 70%; left: 18%; width: 25%; height: 25%;"></div>
-                        <div class="hotspot" data-region-key="norte" style="top: 15%; left: 35%; width: 30%; height: 25%;"></div>
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s3.c3.title">💡 Oportunidade Estratégica</h3>
+                    <div class="bg-[#caf0f8]/50 border-l-4 border-[#00b4d8] p-5 rounded-r-lg space-y-4 h-full flex flex-col justify-center">
+                        <p class="text-slate-800" data-translate-key="s3.c3.p1">Aumentar a produtividade das PMEs através da digitalização e inovação é a chave para o futuro.</p>
+                        <p class="text-slate-800" data-translate-key="s3.c3.p2"><strong class="font-semibold text-[#003366]" data-translate-key="s3.c3.p2.strong">Conexão com o Mapa Estratégico (Fator 6):</strong> Fomentar o "Desenvolvimento Produtivo, Tecnologia e Inovação" por meio de programas de crédito e capacitação pode integrar PMEs às cadeias de valor das grandes empresas, adensando o tecido industrial goiano.</p>
                     </div>
-                    <div id="region-info" class="w-full md:w-1/2 bg-gray-800 p-6 rounded-lg min-h-[300px]">
-                        <h3 id="region-title" class="text-2xl font-bold text-amber-400">Selecione uma Região</h3>
-                        <div id="region-content" class="mt-4 text-gray-300">
-                            <p>Clique em uma das áreas destacadas no mapa para explorar os principais segmentos industriais e as vocações de cada polo de Goiás.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="comercio">
+            <div class="section-title-wrapper">
+                 <h2 class="section-title" data-translate-key="s4.title">Inserção Global e Comércio Exterior</h2>
+                <div class="lang-toggle" data-section="s4">
+                    <button class="active" data-lang="pt">PT</button> | <button class="inactive" data-lang="en">EN</button>
+                </div>
+            </div>
+            <div class="carousel-container">
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6 flex flex-col">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s4.c1.title">Pauta Exportadora</h3>
+                    <p class="text-sm text-slate-500 mb-4 flex-shrink-0" data-translate-key="s4.c1.p1">A pauta é dominada por produtos do agronegócio, refletindo a vocação do estado.</p>
+                    <div class="flex-grow chart-container">
+                        <canvas id="exportsProductsChart"></canvas>
+                    </div>
+                    <p class="source-text" data-translate-key="s4.c1.source">Fonte: Comex Stat. Período: Jan-Set/2025.</p>
+                </div>
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6 flex flex-col">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s4.c2.title">Principais Destinos</h3>
+                    <p class="text-sm text-slate-500 mb-4 flex-shrink-0" data-translate-key="s4.c2.p1">A China é o principal parceiro comercial, o que representa tanto uma oportunidade quanto um risco estratégico.</p>
+                    <div class="flex-grow chart-container">
+                        <canvas id="exportsDestinationsChart"></canvas>
+                    </div>
+                    <p class="source-text" data-translate-key="s4.c2.source">Fonte: Comex Stat. Período: Jan-Set/2025.</p>
+                </div>
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s4.c3.title">💡 Desafio e Oportunidade</h3>
+                    <div class="bg-[#caf0f8]/50 border-l-4 border-[#00b4d8] p-5 rounded-r-lg space-y-4 h-full flex flex-col justify-center">
+                        <p class="text-slate-800" data-translate-key="s4.c3.p1">O desafio é reduzir a dependência de commodities e de um único mercado. A oportunidade reside em agregar mais valor aos produtos e explorar novos acordos comerciais.</p>
+                        <p class="text-slate-800" data-translate-key="s4.c3.p2"><strong class="font-semibold text-[#003366]" data-translate-key="s4.c3.p2.strong">Conexão com o Mapa Estratégico (Fator 4):</strong> É vital avançar no eixo de "Comércio e Integração Internacional", buscando ativamente a diversificação de mercados para produtos de maior valor agregado, como fármacos e componentes automotivos.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="capital-humano">
+            <div class="section-title-wrapper">
+                <h2 class="section-title" data-translate-key="s5.title">Capital Humano e os Desafios do Futuro</h2>
+                <div class="lang-toggle" data-section="s5">
+                    <button class="active" data-lang="pt">PT</button> | <button class="inactive" data-lang="en">EN</button>
+                </div>
+            </div>
+             <div class="carousel-container">
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s5.c1.title">O "Apagão" de Mão de Obra</h3>
+                     <p class="text-slate-600 mb-4" data-translate-key="s5.c1.p1">O crescimento acelerado gerou um gargalo crítico: a escassez de profissionais qualificados para atender às novas demandas da indústria 4.0.</p>
+                     <div class="text-center bg-red-100/60 border border-red-200 p-4 rounded-lg">
+                        <span class="block text-slate-600 uppercase text-sm font-bold tracking-wider" data-translate-key="s5.c1.kpi1">Demanda Projetada</span>
+                        <span class="block text-5xl font-extrabold text-red-600 mt-2">487.000</span>
+                        <span class="block text-slate-600 mt-1 font-semibold" data-translate-key="s5.c1.kpi2">Trabalhadores a serem qualificados</span>
+                    </div>
+                    <p class="source-text" data-translate-key="s5.c1.source">Fonte: Mapa do Trabalho Industrial, SENAI. Período: 2025-2027.</p>
+                </div>
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6 flex flex-col">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s5.c2.title">Ocupações em Alta Demanda</h3>
+                    <p class="text-sm text-slate-500 mb-4 flex-shrink-0" data-translate-key="s5.c2.p1">A demanda se concentra em áreas operacionais, técnicas e de gestão da produção, exigindo qualificação específica.</p>
+                    <div class="flex-grow chart-container">
+                        <canvas id="jobsChart"></canvas>
+                    </div>
+                    <p class="source-text" data-translate-key="s5.c2.source">Fonte: Mapa do Trabalho Industrial, SENAI. Período: 2025-2027.</p>
+                </div>
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s5.c3.title">💡 Rota Estratégica</h3>
+                    <div class="bg-[#caf0f8]/50 border-l-4 border-[#00b4d8] p-5 rounded-r-lg space-y-4 h-full flex flex-col justify-center">
+                        <p class="text-slate-800" data-translate-key="s5.c3.p1">É imperativo criar um pacto pela educação profissional, unindo FIEG, governo e instituições de ensino.</p>
+                        <p class="text-slate-800" data-translate-key="s5.c3.p2"><strong class="font-semibold text-[#003366]" data-translate-key="s5.c3.p2.strong">Conexão com o Mapa Estratégico (Fator 7):</strong> A solução passa por "Alinhar a Educação Profissional e superior às demandas do setor produtivo", com foco em programas do SENAI customizados para as necessidades dos polos industriais goianos, garantindo a competitividade futura.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="foresight-analise">
+             <div class="section-title-wrapper">
+                <h2 class="section-title" data-translate-key="s6.title">Análise de Futuro e Cenários Estratégicos</h2>
+                <div class="lang-toggle" data-section="s6">
+                    <button class="active" data-lang="pt">PT</button> | <button class="inactive" data-lang="en">EN</button>
+                </div>
+            </div>
+            <p class="text-slate-600 mb-6 max-w-4xl" data-translate-key="s6.intro">A análise de cenários é uma ferramenta de foresight estratégico que nos ajuda a explorar futuros possíveis. Utilizando o método STEEP, investigamos as forças motrizes nas dimensões Sociocultural, Tecnológica, Econômica, Ambiental e Político-Regulatória. O objetivo é contrastar o futuro mais provável, baseado nas tendências atuais, com um futuro preferível, que podemos construir através de ações estratégicas hoje.</p>
+            <div class="carousel-container">
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="font-bold text-xl text-[#003366] mb-2" data-translate-key="s6.c1.title">Horizonte 5 Anos (até 2030)</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <h4 class="font-semibold text-slate-600 border-b-2 border-slate-200 pb-1 mb-2" data-translate-key="s6.c1.subtitle1">Cenário Provável</h4>
+                            <ul class="text-sm list-disc list-inside space-y-1 text-slate-500">
+                                <li data-translate-key="s6.c1.li1"><strong>Sociocultural (S):</strong> Persistência do "apagão" de mão de obra técnica.</li>
+                                <li data-translate-key="s6.c1.li2"><strong>Tecnológico (T):</strong> Adoção de Indústria 4.0 restrita a grandes empresas.</li>
+                                <li data-translate-key="s6.c1.li3"><strong>Econômico (E):</strong> Crescimento ainda muito atrelado ao ciclo das commodities.</li>
+                                <li data-translate-key="s6.c1.li4"><strong>Ambiental (A):</strong> Aumento da pressão regulatória sem grandes avanços em economia circular.</li>
+                                <li data-translate-key="s6.c1.li5"><strong>Político-Regulatório (P):</strong> Manutenção de políticas de incentivos fiscais pontuais.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-teal-600 border-b-2 border-teal-200 pb-1 mb-2" data-translate-key="s6.c1.subtitle2">Cenário Preferível</h4>
+                            <ul class="text-sm list-disc list-inside space-y-1 text-slate-700">
+                                <li data-translate-key="s6.c1.li6"><strong>Sociocultural (S):</strong> Pacto estadual pela educação profissional em plena execução.</li>
+                                <li data-translate-key="s6.c1.li7"><strong>Tecnológico (T):</strong> Programas de difusão tecnológica para PMEs ganham escala.</li>
+                                <li data-translate-key="s6.c1.li8"><strong>Econômico (E):</strong> Diversificação da pauta de exportação com mais fármacos e autopeças.</li>
+                                <li data-translate-key="s6.c1.li9"><strong>Ambiental (A):</strong> Goiás se torna líder em certificações de sustentabilidade na agroindústria.</li>
+                                <li data-translate-key="s6.c1.li10"><strong>Político-Regulatório (P):</strong> Lançamento de uma política industrial estadual alinhada à CNI.</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
-            </section>
-
-            <section id="future-row">
-                <h2 class="text-2xl font-bold mb-4 text-white">Segmentos Portadores de Futuro</h2>
-                <div class="carousel space-x-4">
-                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="future" data-key="bioenergia">
-                        <h3 class="font-bold text-lg text-green-400">🌿 Bioenergia e Biocombustíveis</h3>
-                        <p class="text-gray-400 text-sm mt-2">Liderando a transição energética com SAF e etanol 2G.</p>
-                        <p class="mt-4 text-amber-400 font-semibold">Analisar potencial &rarr;</p>
-                    </div>
-                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="future" data-key="farma_tech">
-                        <h3 class="font-bold text-lg text-blue-400">🧬 Fármacos e Cosméticos High-Tech</h3>
-                        <p class="text-gray-400 text-sm mt-2">P&D, alto valor agregado e empregos qualificados.</p>
-                        <p class="mt-4 text-amber-400 font-semibold">Analisar potencial &rarr;</p>
-                    </div>
-                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="future" data-key="logistica">
-                        <h3 class="font-bold text-lg text-purple-400">🚚 Logística 4.0</h3>
-                        <p class="text-gray-400 text-sm mt-2">Automação e IA para o hub central do Brasil.</p>
-                        <p class="mt-4 text-amber-400 font-semibold">Analisar potencial &rarr;</p>
-                    </div>
-                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="future" data-key="minerais">
-                        <h3 class="font-bold text-lg text-yellow-400">💎 Minerais Estratégicos</h3>
-                        <p class="text-gray-400 text-sm mt-2">Níquel, cobre e nióbio para a economia verde.</p>
-                        <p class="mt-4 text-amber-400 font-semibold">Analisar potencial &rarr;</p>
-                    </div>
-                </div>
-            </section>
-
-            <section id="profile-row">
-                <h2 class="text-2xl font-bold mb-4 text-white">Perfil e Análise Estratégica</h2>
-                <div class="carousel space-x-4">
-                     <div class="info-card bg-gray-800 rounded-lg p-5" data-type="profile" data-key="education">
-                        <h3 class="font-bold text-lg text-white">🎓 Perfil de Escolaridade</h3>
-                        <p class="text-gray-400 text-sm mt-2">Análise da qualificação da força de trabalho.</p>
-                        <p class="mt-4 text-amber-400 font-semibold">Ver gráfico e insights &rarr;</p>
-                    </div>
-                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="profile" data-key="opportunities">
-                        <h3 class="font-bold text-lg text-green-400">✅ Oportunidades</h3>
-                        <p class="text-gray-400 text-sm mt-2">Agroindústria, logística e bioenergia.</p>
-                        <p class="mt-4 text-amber-400 font-semibold">Ver detalhes &rarr;</p>
-                    </div>
-                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="profile" data-key="challenges">
-                        <h3 class="font-bold text-lg text-red-400">⚠️ Desafios</h3>
-                        <p class="text-gray-400 text-sm mt-2">Qualificação, infraestrutura e custo da energia.</p>
-                        <p class="mt-4 text-amber-400 font-semibold">Ver detalhes &rarr;</p>
-                    </div>
-                    <div class="info-card bg-gray-800 rounded-lg p-5" data-type="profile" data-key="trends">
-                        <h3 class="font-bold text-lg text-blue-400">📈 Tendências</h3>
-                        <p class="text-gray-400 text-sm mt-2">Indústria 4.0, ESG e digitalização.</p>
-                        <p class="mt-4 text-amber-400 font-semibold">Ver detalhes &rarr;</p>
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="font-bold text-xl text-[#003366] mb-2" data-translate-key="s6.c2.title">Horizonte 10 Anos (até 2035)</h3>
+                     <div class="space-y-4">
+                        <div>
+                            <h4 class="font-semibold text-slate-600 border-b-2 border-slate-200 pb-1 mb-2" data-translate-key="s6.c2.subtitle1">Cenário Provável</h4>
+                            <ul class="text-sm list-disc list-inside space-y-1 text-slate-500">
+                                <li data-translate-key="s6.c2.li1"><strong>Sociocultural (S):</strong> Acentuação da desigualdade de desenvolvimento entre as regiões.</li>
+                                <li data-translate-key="s6.c2.li2"><strong>Tecnológico (T):</strong> Automação substitui empregos de baixa qualificação, gerando desafios sociais.</li>
+                                <li data-translate-key="s6.c2.li3"><strong>Econômico (E):</strong> Dependência da China como principal mercado torna-se um risco geopolítico.</li>
+                                <li data-translate-key="s6.c2.li4"><strong>Ambiental (A):</strong> Impactos de eventos climáticos extremos na cadeia de suprimentos.</li>
+                                <li data-translate-key="s6.c2.li5"><strong>Político-Regulatório (P):</strong> Burocracia e complexidade tributária ainda são gargalos.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-teal-600 border-b-2 border-teal-200 pb-1 mb-2" data-translate-key="s6.c2.subtitle2">Cenário Preferível</h4>
+                            <ul class="text-sm list-disc list-inside space-y-1 text-slate-700">
+                               <li data-translate-key="s6.c2.li6"><strong>Sociocultural (S):</strong> Goiás atinge autossuficiência na formação de talentos para a indústria.</li>
+                               <li data-translate-key="s6.c2.li7"><strong>Tecnológico (T):</strong> Consolidação de um hub Agrotech e de Bioeconomia de relevância nacional.</li>
+                               <li data-translate-key="s6.c2.li8"><strong>Econômico (E):</strong> Indústria farmacêutica se torna grande exportadora para a América Latina.</li>
+                               <li data-translate-key="s6.c2.li9"><strong>Ambiental (A):</strong> Matriz energética industrial majoritariamente renovável (biomassa, solar).</li>
+                               <li data-translate-key="s6.c2.li10"><strong>Político-Regulatório (P):</strong> Goiás é reconhecido como o melhor ambiente de negócios do Brasil.</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
-            </section>
+                 <div class="carousel-item bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="font-bold text-xl text-[#003366] mb-2" data-translate-key="s6.c3.title">Horizonte 20 Anos (até 2045)</h3>
+                     <div class="space-y-4">
+                        <div>
+                            <h4 class="font-semibold text-slate-600 border-b-2 border-slate-200 pb-1 mb-2" data-translate-key="s6.c3.subtitle1">Cenário Provável</h4>
+                            <ul class="text-sm list-disc list-inside space-y-1 text-slate-500">
+                                <li data-translate-key="s6.c3.li1"><strong>Sociocultural (S):</strong> Envelhecimento da população pressiona a força de trabalho.</li>
+                                <li data-translate-key="s6.c3.li2"><strong>Tecnológico (T):</strong> Competição com tecnologias disruptivas (IA, biologia sintética) globais.</li>
+                                <li data-translate-key="s6.c3.li3"><strong>Econômico (E):</strong> Base industrial de commodities perde competitividade por falta de inovação.</li>
+                                <li data-translate-key="s6.c3.li4"><strong>Ambiental (A):</strong> Escassez hídrica se torna um limitador para a expansão da produção.</li>
+                                <li data-translate-key="s6.c3.li5"><strong>Político-Regulatório (P):</strong> Instabilidade nacional afeta a confiança para investimentos de longo prazo.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-teal-600 border-b-2 border-teal-200 pb-1 mb-2" data-translate-key="s6.c3.subtitle2">Cenário Preferível</h4>
+                            <ul class="text-sm list-disc list-inside space-y-1 text-slate-700">
+                               <li data-translate-key="s6.c3.li6"><strong>Sociocultural (S):</strong> Goiás possui um dos maiores IDHs do Brasil, com economia industrial inclusiva.</li>
+                               <li data-translate-key="s6.c3.li7"><strong>Tecnológico (T):</strong> Indústria 5.0 consolidada, com liderança em bio-manufatura e materiais avançados.</li>
+                               <li data-translate-key="s6.c3.li8"><strong>Econômico (E):</strong> Economia industrial descarbonizada, exportando tecnologia sustentável.</li>
+                               <li data-translate-key="s6.c3.li9"><strong>Ambiental (A):</strong> Estado é referência global em gestão de recursos hídricos no Cerrado.</li>
+                               <li data-translate-key="s6.c3.li10"><strong>Político-Regulatório (P):</strong> Planejamento estratégico de longo prazo é uma política de Estado.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="carousel-item bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="font-bold text-xl text-[#003366] mb-4" data-translate-key="s6.c4.title">💡 Do Provável ao Preferível</h3>
+                    <div class="bg-[#caf0f8]/50 border-l-4 border-[#00b4d8] p-5 rounded-r-lg space-y-4 h-full flex flex-col justify-center">
+                        <p class="text-slate-800" data-translate-key="s6.c4.p1">A transição do cenário provável para o preferível não é automática. Exige ações deliberadas e um pacto entre setor produtivo, governo e sociedade.</p>
+                        <p class="text-slate-800" data-translate-key="s6.c4.p2"><strong class="font-semibold text-[#003366]" data-translate-key="s6.c4.p2.strong">Conexão com o Mapa Estratégico:</strong> Para alcançar o futuro desejado, Goiás deve focar intensamente nos fatores-chave da CNI: <strong class="text-[#005a9c]" data-translate-key="s6.c4.p2.s1">Educação (Fator 7)</strong> para resolver o apagão de talentos; <strong class="text-[#005a9c]" data-translate-key="s6.c4.p2.s2">Inovação (Fator 6)</strong> para adensar cadeias e sofisticar a produção; e um <strong class="text-[#005a9c]" data-translate-key="s6.c4.p2.s3">Ambiente de Negócios (Fator 9)</strong> que promova a segurança jurídica e a competitividade para os investimentos de longo prazo.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-        </div>
     </main>
 
-    <div id="modal" class="modal-overlay">
-        <div id="modal-content" class="modal-content p-6 md:p-8">
-            <button id="modal-close" class="absolute top-4 right-4 text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
-            <h2 id="modal-title" class="text-3xl font-bold text-white mb-4"></h2>
-            <div id="modal-body" class="space-y-6"></div>
+    <footer class="bg-white mt-12 py-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-slate-500">
+            <p data-translate-key="footer.p1">&copy; 2025 Infográfico da Indústria Goiana. Análise desenvolvida com base em dados públicos e no Mapa Estratégico da Indústria CNI 2023-2032.</p>
+            <p class="mt-1" data-translate-key="footer.p2">Este infográfico é uma aplicação de página única (SPA), utilizando Chart.js para visualizações em Canvas e Tailwind CSS. Nenhum SVG ou Mermaid JS foi utilizado.</p>
         </div>
-    </div>
+    </footer>
 
-
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    Chart.register(ChartDataLabels);
-    Chart.defaults.color = '#e5e5e5';
-    Chart.defaults.font.family = 'Inter';
-
-    const DATA_YEAR = 2024;
-    const PROJECTION_YEAR = 2025;
-    
-    const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
-    const formatNumber = (value) => new Intl.NumberFormat('pt-BR').format(Math.round(value));
-
-    const calculateProjection = (base, annualGrowth, confidenceLevel = 1.96) => {
-        const years = PROJECTION_YEAR - DATA_YEAR;
-        const projectedValue = base * Math.pow((1 + annualGrowth), years);
-        const stdError = projectedValue * 0.05; 
-        const marginOfError = confidenceLevel * stdError;
-        return {
-            value: projectedValue,
-            lower: projectedValue - marginOfError,
-            upper: projectedValue + marginOfError
+    <script>
+        const translations = {
+            en: {
+                "header.title": "🏭 Goiás Industry Snapshot 6.0",
+                "header.subtitle": "An interactive analysis of the sector's challenges and opportunities.",
+                "s1.title": "Overview and Economic Dynamism",
+                "s1.c1.title": "Key Performance Indicators",
+                "s1.c1.kpi1": "Share of State GDP",
+                "s1.c1.kpi2": "Direct Formal Jobs",
+                "s1.c1.source": "Source: IBGE (2022), RAIS (2023).",
+                "s1.c2.title": "Above-Average Growth",
+                "s1.c2.p1": "The industry in Goiás has shown resilience and growth exceeding the national average, solidifying its strategic position.",
+                "s1.c2.source": "Source: FIEG/IMB. Period: 2021-2024.",
+                "s1.c3.title": "💡 Strategic Analysis",
+                "s1.c3.p1": "The industry's robust performance acts as an engine for stability and diversification for the state's economy, reducing dependence on agribusiness volatility.",
+                "s1.c3.p2": "<strong class=\"font-semibold text-[#003366]\">Link to the Strategic Map:</strong> This dynamism contributes to the mission of \"promoting sustainable development and competitiveness of Brazilian industry,\" positioning Goiás as a national growth pillar.",
+                "s2.title": "Future-Ready Industries",
+                "s2.c1.title": "Workforce by Sector",
+                "s2.c1.p1": "Food & Beverage and Construction lead in job creation, but high-value-added sectors like Pharmaceuticals and Mining show strength.",
+                "s2.c1.source": "Source: RAIS. Period: December/2023.",
+                "s2.c2.title": "Business Landscape by Sector",
+                "s2.c2.p1": "Construction and Apparel have the highest number of establishments, indicating a fragmented base of SMEs.",
+                "s2.c2.source": "Source: RAIS. Period: December/2023.",
+                "s2.c3.title": "Recent Investment Cycle",
+                "s2.c3.p1": "Goiás attracts major investments that modernize and diversify its industrial park, with a focus on energy transition and the bioeconomy.",
+                "s2.c3.li1": "<span class=\"text-xl mr-3\">🌾</span><div><strong class=\"font-semibold\">Bioenergy:</strong> +BRL 3.5 billion in 2nd Generation (2G) Ethanol and biogas plants.</div>",
+                "s2.c3.li2": "<span class=\"text-xl mr-3\">🚗</span><div><strong class=\"font-semibold\">Automotive:</strong> BRL 3 billion for the production of electric and hybrid vehicles in Catalão.</div>",
+                "s2.c3.li3": "<span class=\"text-xl mr-3\">💊</span><div><strong class=\"font-semibold\">Pharmaceuticals:</strong> BRL 1.2 billion to expand production plants and new R&D centers in Anápolis.</div>",
+                "s2.c3.li4": "<span class=\"text-xl mr-3\">⛏️</span><div><strong class=\"font-semibold\">Mining:</strong> +BRL 2 billion in rare-earth and phosphate fertilizer projects.</div>",
+                "s2.c3.source": "Source: Government and corporate announcements. Period: 2024-2025.",
+                "s2.c4.title": "💡 Strategic Future Roadmap",
+                "s2.c4.p1": "The state must focus on policies that strengthen the links between these sectors, creating an ecosystem of innovation and sustainability.",
+                "s2.c4.p2": "<strong class=\"font-semibold text-[#003366]\">Link to the Strategic Map:</strong> Investments align Goiás with the factors of <strong class=\"text-[#005a9c]\">Low Carbon (Factor 3)</strong> with the bioenergy sector, <strong class=\"text-[#005a9c]\">Technology and Innovation (Factor 6)</strong> with the pharmaceutical and automotive hubs, and <strong class=\"text-[#005a9c]\">Natural Resources (Factor 3)</strong> with strategic mining. Industrial policy must aim to deepen these value chains.",
+                "s3.title": "Corporate Structure and Productivity",
+                "s3.c1.title": "Profile: Companies vs. Jobs",
+                "s3.c1.p1": "The industrial base is broad, with SMEs dominating in number. However, job creation is concentrated in large corporations.",
+                "s3.c1.source": "Source: RAIS. Period: December/2023.",
+                "s3.c2.title": "The Productivity Challenge",
+                "s3.c2.p1": "There is a significant productivity gap between large and small industries. Bridging this gap is essential for strengthening the entire production chain.",
+                "s3.c2.kpi1": "Scale Gap",
+                "s3.c2.kpi2": "of jobs are in just 24% of companies (Small, Medium, and Large).",
+                "s3.c3.title": "💡 Strategic Opportunity",
+                "s3.c3.p1": "Increasing SME productivity through digitalization and innovation is key to the future.",
+                "s3.c3.p2": "<strong class=\"font-semibold text-[#003366]\">Link to the Strategic Map (Factor 6):</strong> Promoting \"Productive Development, Technology, and Innovation\" through credit and training programs can integrate SMEs into the value chains of large companies, densifying the industrial fabric of Goiás.",
+                "s4.title": "Global Integration and Foreign Trade",
+                "s4.c1.title": "Export Portfolio",
+                "s4.c1.p1": "The export portfolio is dominated by agribusiness products, reflecting the state's vocation.",
+                "s4.c1.source": "Source: Comex Stat. Period: Jan-Sep/2025.",
+                "s4.c2.title": "Main Destinations",
+                "s4.c2.p1": "China is the main trading partner, which represents both an opportunity and a strategic risk.",
+                "s4.c2.source": "Source: Comex Stat. Period: Jan-Sep/2025.",
+                "s4.c3.title": "💡 Challenge and Opportunity",
+                "s4.c3.p1": "The challenge is to reduce dependence on commodities and a single market. The opportunity lies in adding more value to products and exploring new trade agreements.",
+                "s4.c3.p2": "<strong class=\"font-semibold text-[#003366]\">Link to the Strategic Map (Factor 4):</strong> It is vital to advance in \"Trade and International Integration,\" actively seeking market diversification for higher value-added products, such as pharmaceuticals and automotive components.",
+                "s5.title": "Human Capital and Future Challenges",
+                "s5.c1.title": "The Labor Shortage",
+                "s5.c1.p1": "Accelerated growth has created a critical bottleneck: a shortage of qualified professionals to meet the new demands of Industry 4.0.",
+                "s5.c1.kpi1": "Projected Demand",
+                "s5.c1.kpi2": "Workers to be qualified",
+                "s5.c1.source": "Source: Industrial Labor Map, SENAI. Period: 2025-2027.",
+                "s5.c2.title": "High-Demand Occupations",
+                "s5.c2.p1": "Demand is concentrated in operational, technical, and production management areas, requiring specific qualifications.",
+                "s5.c2.source": "Source: Industrial Labor Map, SENAI. Period: 2025-2027.",
+                "s5.c3.title": "💡 Strategic Roadmap",
+                "s5.c3.p1": "It is imperative to create a pact for vocational education, uniting FIEG, government, and educational institutions.",
+                "s5.c3.p2": "<strong class=\"font-semibold text-[#003366]\">Link to the Strategic Map (Factor 7):</strong> The solution involves \"Aligning vocational and higher education with the demands of the productive sector,\" focusing on customized SENAI programs for the needs of Goiás' industrial hubs, ensuring future competitiveness.",
+                "s6.title": "Future Analysis and Strategic Scenarios",
+                "s6.intro": "Scenario analysis is a strategic foresight tool that helps us explore possible futures. Using the STEEP method, we investigate the driving forces in the Sociocultural, Technological, Economic, Environmental, and Political-Regulatory dimensions. The goal is to contrast the most probable future, based on current trends, with a preferable future that we can build through strategic actions today.",
+                "s6.c1.title": "5-Year Horizon (by 2030)",
+                "s6.c1.subtitle1": "Probable Scenario",
+                "s6.c1.li1": "<strong>Sociocultural (S):</strong> Persistence of the technical labor shortage.",
+                "s6.c1.li2": "<strong>Technological (T):</strong> Adoption of Industry 4.0 restricted to large companies.",
+                "s6.c1.li3": "<strong>Economic (E):</strong> Growth still heavily tied to the commodity cycle.",
+                "s6.c1.li4": "<strong>Environmental (E):</strong> Increased regulatory pressure without significant advances in the circular economy.",
+                "s6.c1.li5": "<strong>Political-Regulatory (P):</strong> Maintenance of ad-hoc tax incentive policies.",
+                "s6.c1.subtitle2": "Preferable Scenario",
+                "s6.c1.li6": "<strong>Sociocultural (S):</strong> State-wide pact for vocational education in full implementation.",
+                "s6.c1.li7": "<strong>Technological (T):</strong> Technology diffusion programs for SMEs gain scale.",
+                "s6.c1.li8": "<strong>Economic (E):</strong> Diversification of the export portfolio with more pharmaceuticals and auto parts.",
+                "s6.c1.li9": "<strong>Environmental (E):</strong> Goiás becomes a leader in sustainability certifications in agribusiness.",
+                "s6.c1.li10": "<strong>Political-Regulatory (P):</strong> Launch of a state industrial policy aligned with CNI.",
+                "s6.c2.title": "10-Year Horizon (by 2035)",
+                "s6.c2.subtitle1": "Probable Scenario",
+                "s6.c2.li1": "<strong>Sociocultural (S):</strong> Accentuation of development inequality between state regions.",
+                "s6.c2.li2": "<strong>Technological (T):</strong> Automation replaces low-skilled jobs, creating social challenges.",
+                "s6.c2.li3": "<strong>Economic (E):</strong> Dependence on China as the main export market becomes a geopolitical risk.",
+                "s6.c2.li4": "<strong>Environmental (E):</strong> Impacts of extreme climate events on the supply chain.",
+                "s6.c2.li5": "<strong>Political-Regulatory (P):</strong> Bureaucracy and tax complexity remain significant bottlenecks.",
+                "s6.c2.subtitle2": "Preferable Scenario",
+                "s6.c2.li6": "<strong>Sociocultural (S):</strong> Goiás achieves self-sufficiency in training talent for the industry.",
+                "s6.c2.li7": "<strong>Technological (T):</strong> Consolidation of a nationally relevant Agrotech and Bioeconomy hub.",
+                "s6.c2.li8": "<strong>Economic (E):</strong> Pharmaceutical industry becomes a major exporter to Latin America.",
+                "s6.c2.li9": "<strong>Environmental (E):</strong> Industrial energy matrix is predominantly renewable (biomass, solar).",
+                "s6.c2.li10": "<strong>Political-Regulatory (P):</strong> Goiás is recognized as the best industrial business environment in Brazil.",
+                "s6.c3.title": "20-Year Horizon (by 2045)",
+                "s6.c3.subtitle1": "Probable Scenario",
+                "s6.c3.li1": "<strong>Sociocultural (S):</strong> Aging population pressures the labor force.",
+                "s6.c3.li2": "<strong>Technological (T):</strong> Competition from disruptive global technologies (AI, synthetic biology).",
+                "s6.c3.li3": "<strong>Economic (E):</strong> Commodity-based industrial base loses competitiveness due to lack of innovation.",
+                "s6.c3.li4": "<strong>Environmental (E):</strong> Water scarcity becomes a limiting factor for production expansion.",
+                "s6.c3.li5": "<strong>Political-Regulatory (P):</strong> National instability affects confidence for long-term investments.",
+                "s6.c3.subtitle2": "Preferable Scenario",
+                "s6.c3.li6": "<strong>Sociocultural (S):</strong> Goiás has one of the highest HDIs in Brazil, with an inclusive industrial economy.",
+                "s6.c3.li7": "<strong>Technological (T):</strong> Industry 5.0 consolidated, with leadership in bio-manufacturing and advanced materials.",
+                "s6.c3.li8": "<strong>Economic (E):</strong> Decarbonized industrial economy, exporting sustainable technology.",
+                "s6.c3.li9": "<strong>Environmental (E):</strong> State is a global reference in water resource management in the Cerrado.",
+                "s6.c3.li10": "<strong>Political-Regulatory (P):</strong> Long-term strategic planning is a state policy, not a government one.",
+                "s6.c4.title": "💡 From Probable to Preferable",
+                "s6.c4.p1": "The transition from the probable to the preferable scenario is not automatic. It requires deliberate actions and a pact between the productive sector, government, and society.",
+                "s6.c4.p2": "<strong class=\"font-semibold text-[#003366]\">Link to the Strategic Map:</strong> To achieve the desired future, Goiás must focus intensely on CNI's key factors: <strong class=\"text-[#005a9c]\">Education (Factor 7)</strong> to solve the talent shortage; <strong class=\"text-[#005a9c]\">Innovation (Factor 6)</strong> to deepen value chains and sophisticate production; and a <strong class=\"text-[#005a9c]\">Business Environment (Factor 9)</strong> that promotes legal certainty and competitiveness for long-term investments.",
+                "footer.p1": "© 2025 Goiás Industry Snapshot. Analysis developed based on public data and the CNI Strategic Map for Industry 2023-2032.",
+                "footer.p2": "This infographic is a single-page application (SPA), using Chart.js for Canvas visualizations and Tailwind CSS. No SVG or Mermaid JS was used.",
+            },
+            pt: {
+                "header.title": "🏭 Raio-X da Indústria Goiana 6.0",
+                "header.subtitle": "Uma análise interativa sobre os desafios e oportunidades do setor.",
+                "s1.title": "Visão Geral e Dinamismo Econômico",
+                "s1.c1.title": "Indicadores-Chave",
+                "s1.c1.kpi1": "Participação no PIB Estadual",
+                "s1.c1.kpi2": "Empregos Formais Diretos",
+                "s1.c1.source": "Fonte: IBGE (2022), RAIS (2023).",
+                "s1.c2.title": "Crescimento Acima da Média",
+                "s1.c2.p1": "A indústria goiana tem demonstrado resiliência e um crescimento superior à média nacional, consolidando sua posição estratégica.",
+                "s1.c2.source": "Fonte: FIEG/IMB. Período: 2021-2024.",
+                "s1.c3.title": "💡 Análise Estratégica",
+                "s1.c3.p1": "O desempenho robusto da indústria funciona como um motor de estabilidade e diversificação para a economia do estado, reduzindo a dependência da volatilidade do agronegócio.",
+                "s1.c3.p2": "<strong class=\"font-semibold text-[#003366]\">Conexão com o Mapa Estratégico:</strong> Este dinamismo contribui para a missão de \"promover o desenvolvimento sustentável e a competitividade da indústria brasileira\", posicionando Goiás como um pilar de crescimento nacional.",
+                "s2.title": "Segmentos Portadores de Futuro",
+                "s2.c1.title": "Força de Trabalho por Setor",
+                "s2.c1.p1": "Alimentos e Construção lideram a geração de empregos, mas setores de alto valor agregado como Farmacêutico e Mineração mostram força.",
+                "s2.c1.source": "Fonte: RAIS. Período: Dezembro/2023.",
+                "s2.c2.title": "Base Empresarial por Setor",
+                "s2.c2.p1": "Construção e Vestuário possuem o maior número de estabelecimentos, evidenciando uma base pulverizada de PMEs.",
+                "s2.c2.source": "Fonte: RAIS. Período: Dezembro/2023.",
+                "s2.c3.title": "Ciclo de Investimentos Recentes",
+                "s2.c3.p1": "Goiás atrai grandes aportes que modernizam e diversificam seu parque industrial, com destaque para a transição energética e a bioeconomia.",
+                "s2.c3.li1": "<span class=\"text-xl mr-3\">🌾</span><div><strong class=\"font-semibold\">Sucroenergético:</strong> +R$ 3,5 bilhões em usinas de Etanol de 2ª Geração (2G) e biogás.</div>",
+                "s2.c3.li2": "<span class=\"text-xl mr-3\">🚗</span><div><strong class=\"font-semibold\">Automotivo:</strong> R$ 3 bilhões para produção de veículos elétricos e híbridos em Catalão.</div>",
+                "s2.c3.li3": "<span class=\"text-xl mr-3\">💊</span><div><strong class=\"font-semibold\">Farmacêutico:</strong> R$ 1,2 bilhão na expansão de plantas de produção e novos centros de P&D em Anápolis.</div>",
+                "s2.c3.li4": "<span class=\"text-xl mr-3\">⛏️</span><div><strong class=\"font-semibold\">Mineração:</strong> +R$ 2 bilhões em projetos de terras-raras e fertilizantes fosfatados.</div>",
+                "s2.c3.source": "Fonte: Anúncios governamentais e empresariais. Período: 2024-2025.",
+                "s2.c4.title": "💡 Rota Estratégica de Futuro",
+                "s2.c4.p1": "O Estado deve focar em políticas que fortaleçam os elos entre esses setores, criando um ecossistema de inovação e sustentabilidade.",
+                "s2.c4.p2": "<strong class=\"font-semibold text-[#003366]\">Conexão com o Mapa Estratégico:</strong> Os investimentos alinham Goiás aos fatores de <strong class=\"text-[#005a9c]\">Baixo Carbono (Fator 3)</strong> com o setor sucroenergético, <strong class=\"text-[#005a9c]\">Tecnologia e Inovação (Fator 6)</strong> com os polos farmacêutico e automotivo, e <strong class=\"text-[#005a9c]\">Recursos Naturais (Fator 3)</strong> com a mineração estratégica. A política industrial deve ser a de adensar essas cadeias produtivas.",
+                "s3.title": "Estrutura Empresarial e Produtividade",
+                "s3.c1.title": "Perfil: Empresas vs. Empregos",
+                "s3.c1.p1": "A base industrial é ampla, com PMEs dominando em número. No entanto, a geração de empregos é concentrada nas grandes corporações.",
+                "s3.c1.source": "Fonte: RAIS. Período: Dezembro/2023.",
+                "s3.c2.title": "O Desafio da Produtividade",
+                "s3.c2.p1": "Existe um hiato significativo de produtividade entre as grandes e as pequenas indústrias. Superar essa lacuna é essencial para o fortalecimento de toda a cadeia produtiva.",
+                "s3.c2.kpi1": "Hiato de Escala",
+                "s3.c2.kpi2": "dos empregos estão em apenas 24% das empresas (Pequenas, Médias e Grandes).",
+                "s3.c3.title": "💡 Oportunidade Estratégica",
+                "s3.c3.p1": "Aumentar a produtividade das PMEs através da digitalização e inovação é a chave para o futuro.",
+                "s3.c3.p2": "<strong class=\"font-semibold text-[#003366]\">Conexão com o Mapa Estratégico (Fator 6):</strong> Fomentar o \"Desenvolvimento Produtivo, Tecnologia e Inovação\" por meio de programas de crédito e capacitação pode integrar PMEs às cadeias de valor das grandes empresas, adensando o tecido industrial goiano.",
+                "s4.title": "Inserção Global e Comércio Exterior",
+                "s4.c1.title": "Pauta Exportadora",
+                "s4.c1.p1": "A pauta é dominada por produtos do agronegócio, refletindo a vocação do estado.",
+                "s4.c1.source": "Fonte: Comex Stat. Período: Jan-Set/2025.",
+                "s4.c2.title": "Principais Destinos",
+                "s4.c2.p1": "A China é o principal parceiro comercial, o que representa tanto uma oportunidade quanto um risco estratégico.",
+                "s4.c2.source": "Fonte: Comex Stat. Período: Jan-Set/2025.",
+                "s4.c3.title": "💡 Desafio e Oportunidade",
+                "s4.c3.p1": "O desafio é reduzir a dependência de commodities e de um único mercado. A oportunidade reside em agregar mais valor aos produtos e explorar novos acordos comerciais.",
+                "s4.c3.p2": "<strong class=\"font-semibold text-[#003366]\">Conexão com o Mapa Estratégico (Fator 4):</strong> É vital avançar no eixo de \"Comércio e Integração Internacional\", buscando ativamente a diversificação de mercados para produtos de maior valor agregado, como fármacos e componentes automotivos.",
+                "s5.title": "Capital Humano e os Desafios do Futuro",
+                "s5.c1.title": "O \"Apagão\" de Mão de Obra",
+                "s5.c1.p1": "O crescimento acelerado gerou um gargalo crítico: a escassez de profissionais qualificados para atender às novas demandas da indústria 4.0.",
+                "s5.c1.kpi1": "Demanda Projetada",
+                "s5.c1.kpi2": "Trabalhadores a serem qualificados",
+                "s5.c1.source": "Fonte: Mapa do Trabalho Industrial, SENAI. Período: 2025-2027.",
+                "s5.c2.title": "Ocupações em Alta Demanda",
+                "s5.c2.p1": "A demanda se concentra em áreas operacionais, técnicas e de gestão da produção, exigindo qualificação específica.",
+                "s5.c2.source": "Fonte: Mapa do Trabalho Industrial, SENAI. Período: 2025-2027.",
+                "s5.c3.title": "💡 Rota Estratégica",
+                "s5.c3.p1": "É imperativo criar um pacto pela educação profissional, unindo FIEG, governo e instituições de ensino.",
+                "s5.c3.p2": "<strong class=\"font-semibold text-[#003366]\">Conexão com o Mapa Estratégico (Fator 7):</strong> A solução passa por \"Alinhar a Educação Profissional e superior às demandas do setor produtivo\", com foco em programas do SENAI customizados para as necessidades dos polos industriais goianos, garantindo a competitividade futura.",
+                "s6.title": "Análise de Futuro e Cenários Estratégicos",
+                "s6.intro": "A análise de cenários é uma ferramenta de foresight estratégico que nos ajuda a explorar futuros possíveis. Utilizando o método STEEP, investigamos as forças motrizes nas dimensões Sociocultural, Tecnológica, Econômica, Ambiental e Político-Regulatória. O objetivo é contrastar o futuro mais provável, baseado nas tendências atuais, com um futuro preferível, que podemos construir através de ações estratégicas hoje.",
+                "s6.c1.title": "Horizonte 5 Anos (até 2030)",
+                "s6.c1.subtitle1": "Cenário Provável",
+                "s6.c1.li1": "<strong>Sociocultural (S):</strong> Persistência do \"apagão\" de mão de obra técnica.</li>",
+                "s6.c1.li2": "<strong>Tecnológico (T):</strong> Adoção de Indústria 4.0 restrita a grandes empresas.</li>",
+                "s6.c1.li3": "<strong>Econômico (E):</strong> Crescimento ainda muito atrelado ao ciclo das commodities.</li>",
+                "s6.c1.li4": "<strong>Ambiental (A):</strong> Aumento da pressão regulatória sem grandes avanços em economia circular.</li>",
+                "s6.c1.li5": "<strong>Político-Regulatório (P):</strong> Manutenção de políticas de incentivos fiscais pontuais.</li>",
+                "s6.c1.subtitle2": "Cenário Preferível",
+                "s6.c1.li6": "<strong>Sociocultural (S):</strong> Pacto estadual pela educação profissional em plena execução.</li>",
+                "s6.c1.li7": "<strong>Tecnológico (T):</strong> Programas de difusão tecnológica para PMEs ganham escala.</li>",
+                "s6.c1.li8": "<strong>Econômico (E):</strong> Diversificação da pauta de exportação com mais fármacos e autopeças.</li>",
+                "s6.c1.li9": "<strong>Ambiental (A):</strong> Goiás se torna líder em certificações de sustentabilidade na agroindústria.</li>",
+                "s6.c1.li10": "<strong>Político-Regulatório (P):</strong> Lançamento de uma política industrial estadual alinhada à CNI.</li>",
+                "s6.c2.title": "Horizonte 10 Anos (até 2035)",
+                "s6.c2.subtitle1": "Cenário Provável",
+                "s6.c2.li1": "<strong>Sociocultural (S):</strong> Acentuação da desigualdade de desenvolvimento entre as regiões.</li>",
+                "s6.c2.li2": "<strong>Tecnológico (T):</strong> Automação substitui empregos de baixa qualificação, gerando desafios sociais.</li>",
+                "s6.c2.li3": "<strong>Econômico (E):</strong> Dependência da China como principal mercado torna-se um risco geopolítico.</li>",
+                "s6.c2.li4": "<strong>Ambiental (A):</strong> Impactos de eventos climáticos extremos na cadeia de suprimentos.</li>",
+                "s6.c2.li5": "<strong>Político-Regulatório (P):</strong> Burocracia e complexidade tributária ainda são gargalos.</li>",
+                "s6.c2.subtitle2": "Cenário Preferível",
+                "s6.c2.li6": "<strong>Sociocultural (S):</strong> Goiás atinge autossuficiência na formação de talentos para a indústria.</li>",
+                "s6.c2.li7": "<strong>Tecnológico (T):</strong> Consolidação de um hub Agrotech e de Bioeconomia de relevância nacional.</li>",
+                "s6.c2.li8": "<strong>Econômico (E):</strong> Indústria farmacêutica se torna grande exportadora para a América Latina.</li>",
+                "s6.c2.li9": "<strong>Ambiental (A):</strong> Matriz energética industrial majoritariamente renovável (biomassa, solar).</li>",
+                "s6.c2.li10": "<strong>Político-Regulatório (P):</strong> Goiás é reconhecido como o melhor ambiente de negócios do Brasil.</li>",
+                "s6.c3.title": "Horizonte 20 Anos (até 2045)",
+                "s6.c3.subtitle1": "Cenário Provável",
+                "s6.c3.li1": "<strong>Sociocultural (S):</strong> Envelhecimento da população pressiona a força de trabalho.</li>",
+                "s6.c3.li2": "<strong>Tecnológico (T):</strong> Competição com tecnologias disruptivas (IA, biologia sintética) globais.</li>",
+                "s6.c3.li3": "<strong>Econômico (E):</strong> Base industrial de commodities perde competitividade por falta de inovação.</li>",
+                "s6.c3.li4": "<strong>Ambiental (A):</strong> Escassez hídrica se torna um limitador para a expansão da produção.</li>",
+                "s6.c3.li5": "<strong>Político-Regulatório (P):</strong> Instabilidade nacional afeta a confiança para investimentos de longo prazo.</li>",
+                "s6.c3.subtitle2": "Cenário Preferível",
+                "s6.c3.li6": "<strong>Sociocultural (S):</strong> Goiás possui um dos maiores IDHs do Brasil, com economia industrial inclusiva.</li>",
+                "s6.c3.li7": "<strong>Tecnológico (T):</strong> Indústria 5.0 consolidada, com liderança em bio-manufatura e materiais avançados.</li>",
+                "s6.c3.li8": "<strong>Econômico (E):</strong> Economia industrial descarbonizada, exportando tecnologia sustentável.</li>",
+                "s6.c3.li9": "<strong>Ambiental (A):</strong> Estado é referência global em gestão de recursos hídricos no Cerrado.</li>",
+                "s6.c3.li10": "<strong>Político-Regulatório (P):</strong> Planejamento estratégico de longo prazo é uma política de Estado.</li>",
+                "s6.c4.title": "💡 Do Provável ao Preferível",
+                "s6.c4.p1": "A transição do cenário provável para o preferível não é automática. Exige ações deliberadas e um pacto entre setor produtivo, governo e sociedade.",
+                "s6.c4.p2": "<strong class=\"font-semibold text-[#003366]\">Conexão com o Mapa Estratégico:</strong> Para alcançar o futuro desejado, Goiás deve focar intensamente nos fatores-chave da CNI: <strong class=\"text-[#005a9c]\">Educação (Fator 7)</strong> para resolver o apagão de talentos; <strong class=\"text-[#005a9c]\">Inovação (Fator 6)</strong> para adensar cadeias e sofisticar a produção; e um <strong class=\"text-[#005a9c]\">Ambiente de Negócios (Fator 9)</strong> que promova a segurança jurídica e a competitividade para os investimentos de longo prazo.",
+                "footer.p1": "© 2025 Infográfico da Indústria Goiana. Análise desenvolvida com base em dados públicos e no Mapa Estratégico da Indústria CNI 2023-2032.",
+                "footer.p2": "Este infográfico é uma aplicação de página única (SPA), utilizando Chart.js para visualizações em Canvas e Tailwind CSS. Nenhum SVG ou Mermaid JS foi utilizado.",
+            }
         };
-    };
-    
-    const data = {
-        kpi: {
-            pib: {
-                title: 'PIB Industrial',
-                value: '20.5%',
-                source: 'IBGE / IMB',
-                period: `Consolidado ${DATA_YEAR-1}`,
-                analysis: 'A participação robusta da indústria no PIB estadual demonstra sua importância como pilar econômico. A tendência é de manutenção ou leve crescimento, atrelado ao desempenho da agroindústria e da mineração.'
-            },
-            empregos: {
-                title: 'Empregos Diretos',
-                value: '350.120',
-                source: 'RAIS / CAGED',
-                period: `Dados de ${DATA_YEAR}`,
-                analysis: 'A geração de empregos é liderada pelo setor de alimentos. A automação pode reduzir vagas de baixa qualificação, mas criará demanda por técnicos e especialistas em novas tecnologias.',
-                projection: { base: 350120, growth: 0.02 }
-            },
-            estabelecimentos: {
-                title: 'Estabelecimentos',
-                value: '18.340',
-                source: 'CNI / FIEG',
-                period: `Dados de ${DATA_YEAR}`,
-                analysis: 'A pulverização de estabelecimentos, especialmente de pequeno e médio porte, mostra a capilaridade da indústria. O desafio é aumentar a competitividade e a inserção em cadeias globais.'
-            },
-            salario: {
-                 title: 'Salário Médio Industrial',
-                 value: 'R$ 3.120',
-                 source: 'RAIS / CAGED',
-                 period: `Dados de ${DATA_YEAR}`,
-                 analysis: 'O salário médio da indústria é superior a outros setores, com destaque para o polo farmoquímico. A demanda por qualificação técnica tende a elevar a média salarial nos próximos anos.',
-                 projection: { base: 3120, growth: 0.045 }
-            }
-        },
-        sectors: {
-            alimentos: {
-                title: '🥩 Alimentos e Bebidas',
-                source: 'RAIS/CAGED/FIEG',
-                period: `Dados de ${DATA_YEAR}`,
-                analysis: 'Principal motor da indústria goiana. A projeção de crescimento de empregos reflete a expansão da capacidade produtiva e a busca por produtos de maior valor agregado. A sustentabilidade na produção é uma tendência chave.',
-                projection: {
-                    jobs: { base: 147000, growth: 0.025 },
-                    salary: { base: 2850, growth: 0.04 }
-                },
-                chartData: {
-                    type: 'bar',
-                    labels: ['Alimentador de Linha de Produção', 'Magarefe', 'Operador de Processos', 'Motorista', 'Téc. Seg. Trabalho'],
-                    data: [25000, 18000, 12000, 9000, 7500],
-                    title: 'Principais Ocupações (Nº de Vagas)'
-                }
-            },
-            farmaceutico: {
-                title: '💊 Farmacoquímico',
-                source: 'RAIS/IQVIA/FIEG',
-                period: `Dados de ${DATA_YEAR}`,
-                analysis: 'Setor de alta tecnologia e com os maiores salários. A projeção salarial reflete a forte demanda por profissionais altamente qualificados. A expansão do polo de Anápolis é um vetor de crescimento contínuo.',
-                projection: {
-                    jobs: { base: 35000, growth: 0.035 },
-                    salary: { base: 4900, growth: 0.06 }
-                },
-                chartData: {
-                    type: 'bar',
-                    labels: ['Op. Processo Químico', 'Téc. em Farmácia', 'Analista de CQ', 'Gerente de Produção', 'Pesquisador'],
-                    data: [8000, 6500, 5000, 3500, 2000],
-                    title: 'Principais Ocupações (Nº de Vagas)'
-                }
-            },
-            automotivo: {
-                title: '🚗 Automotivo',
-                source: 'ANFAVEA/RAIS',
-                period: `Dados de ${DATA_YEAR}`,
-                analysis: 'Setor impactado pela transição para veículos elétricos e híbridos. A projeção moderada reflete a necessidade de adaptação da cadeia produtiva e requalificação da mão de obra para novas tecnologias.',
-                projection: {
-                    jobs: { base: 28000, growth: 0.015 },
-                    salary: { base: 3950, growth: 0.035 }
-                },
-                chartData: {
-                    type: 'bar',
-                    labels: ['Montador de Veículos', 'Mecânico de Manutenção', 'Op. Máquinas', 'Inspetor de Qualidade', 'Eng. Mecânico'],
-                    data: [7000, 5500, 4000, 3200, 1800],
-                    title: 'Principais Ocupações (Nº de Vagas)'
-                }
-            },
-            extrativa: {
-                title: '⛏️ Extrativa Mineral',
-                source: 'IBRAM/RAIS',
-                period: `Dados de ${DATA_YEAR}`,
-                analysis: 'Crescimento impulsionado pela demanda global por minerais estratégicos (transição energética). As projeções são otimistas, mas dependem de investimentos em tecnologia e licenciamento ambiental.',
-                projection: {
-                    jobs: { base: 17500, growth: 0.04 },
-                    salary: { base: 4200, growth: 0.05 }
-                },
-                chartData: {
-                    type: 'bar',
-                    labels: ['Op. Equip. de Mina', 'Geólogo', 'Téc. em Mineração', 'Blaster', 'Eng. de Minas'],
-                    data: [6000, 2500, 2100, 1500, 1200],
-                    title: 'Principais Ocupações (Nº de Vagas)'
-                }
-            }
-        },
-        region: {
-            anapolis: {
-                title: 'Polo Industrial de Anápolis',
-                content: `<p class="text-gray-300">Considerado o coração industrial do estado, Anápolis se destaca pela concentração de empresas de alta tecnologia e por sua plataforma logística multimodal.</p>
-                          <h4 class="font-semibold text-amber-400 mt-4 mb-2">Principais Segmentos:</h4>
-                          <ul class="space-y-2 list-disc list-inside text-gray-300">
-                            <li><b>Farmoquímico:</b> Abriga o segundo maior polo farmacêutico do Brasil, com grandes laboratórios de medicamentos genéricos e similares.</li>
-                            <li><b>Automotivo:</b> Sede de uma grande montadora e de uma vasta cadeia de fornecedores de autopeças.</li>
-                            <li><b>Logística:</b> Ponto estratégico com acesso a rodovias, ferrovia e o Porto Seco Centro-Oeste.</li>
-                          </ul>`
-            },
-            sudoeste: {
-                title: 'Sudoeste Goiano',
-                content: `<p class="text-gray-300">Esta região é o epicentro da agroindústria goiana, transformando a vasta produção agrícola e pecuária em produtos de alto valor.</p>
-                          <h4 class="font-semibold text-amber-400 mt-4 mb-2">Principais Segmentos:</h4>
-                          <ul class="space-y-2 list-disc list-inside text-gray-300">
-                            <li><b>Processamento de Carnes:</b> Grandes frigoríficos que lideram a exportação de carne bovina.</li>
-                            <li><b>Esmagamento de Soja:</b> Indústrias que produzem farelo e óleo de soja para o mercado interno e externo.</li>
-                            <li><b>Bioenergia:</b> Usinas de cana-de-açúcar que produzem etanol, açúcar e bioeletricidade.</li>
-                          </ul>`
-            },
-            metro: {
-                title: 'Região Metropolitana de Goiânia',
-                content: `<p class="text-gray-300">A região da capital é caracterizada pela diversidade industrial, com destaque para setores que atendem diretamente o mercado consumidor.</p>
-                          <h4 class="font-semibold text-amber-400 mt-4 mb-2">Principais Segmentos:</h4>
-                          <ul class="space-y-2 list-disc list-inside text-gray-300">
-                            <li><b>Confecção e Moda:</b> Forte polo de vestuário, com destaque para a moda jeans e popular.</li>
-                            <li><b>Alimentos Processados:</b> Indústrias de laticínios, panificação e bebidas que abastecem o centro-oeste.</li>
-                            <li><b>Mobiliário:</b> Concentração de indústrias de móveis residenciais e corporativos.</li>
-                          </ul>`
-            },
-            norte: {
-                title: 'Norte Goiano',
-                content: `<p class="text-gray-300">O Norte do estado tem sua base industrial fortemente ligada à exploração de seus recursos naturais, sendo uma fronteira de expansão para grandes projetos.</p>
-                          <h4 class="font-semibold text-amber-400 mt-4 mb-2">Principais Segmentos:</h4>
-                          <ul class="space-y-2 list-disc list-inside text-gray-300">
-                            <li><b>Mineração:</b> Exploração de níquel, cobre e ouro, com grandes complexos mineradores.</li>
-                            <li><b>Extrativismo Vegetal:</b> Beneficiamento de madeira e outros produtos da biodiversidade local.</li>
-                            <li><b>Cimento e Calcário:</b> Indústrias ligadas à construção civil, aproveitando as jazidas locais.</li>
-                          </ul>`
-            }
-        },
-        future: {
-            bioenergia: {
-                title: '🌿 Bioenergia e Biocombustíveis',
-                analysis: `<p class="text-gray-300">Goiás está posicionado para liderar a transição energética no Brasil. O setor de bioenergia é o que mais atrai investimentos. A produção de Etanol de Segunda Geração (2G) e, principalmente, de Combustível Sustentável de Aviação (SAF) a partir de cana e milho, coloca o estado na vanguarda de um mercado global em franca expansão. Espera-se a criação de mais de <strong>5.000 empregos qualificados</strong> nos próximos 3 a 5 anos, com investimentos superando <strong>R$ 10 bilhões</strong> em novas plantas e tecnologias.</p>`
-            },
-            farma_tech: {
-                title: '🧬 Fármacos e Cosméticos High-Tech',
-                analysis: `<p class="text-gray-300">Indo além dos genéricos, o futuro está na pesquisa e desenvolvimento (P&D) de biofármacos e cosméticos que utilizam a biodiversidade do Cerrado. A tendência é a atração de centros de P&D, gerando empregos de altíssima qualificação (mestres e doutores) e um aumento de mais de <strong>150 novos estabelecimentos</strong> focados em inovação. O valor agregado desses produtos impulsiona o salário médio do setor, que já é o mais alto, para patamares ainda maiores.</p>`
-            },
-            logistica: {
-                title: '🚚 Logística 4.0',
-                analysis: `<p class="text-gray-300">A posição geográfica de Goiás é seu maior ativo. O futuro da logística é a automação de centros de distribuição, uso de drones para entrega e inteligência artificial para otimização de rotas. A consolidação da Ferrovia Norte-Sul e a expansão de plataformas multimodais devem gerar cerca de <strong>8.000 novos empregos</strong>, não apenas em operação, but em tecnologia da informação, análise de dados e manutenção de sistemas automatizados.</p>`
-            },
-            minerais: {
-                title: '💎 Minerais Estratégicos',
-                analysis: `<p class="text-gray-300">A demanda global por minerais para a transição energética (baterias, painéis solares, etc.) coloca as reservas de níquel, cobre, nióbio e terras raras de Goiás em evidência. Projetos de expansão e novas minas estão atraindo investimentos bilionários. Embora gere menos empregos diretos por ser capital-intensivo, cria vagas de alta especialização e remuneração, além de uma vasta cadeia de fornecedores e serviços, com potencial de dobrar a quantidade de estabelecimentos no setor em uma década.</p>`
-            }
-        },
-        profile: {
-            education: {
-                title: '🎓 Perfil de Escolaridade',
-                source: 'RAIS / Pnad Contínua',
-                period: `Dados de ${DATA_YEAR}`,
-                analysis: 'Predominância do ensino médio completo aponta para um gargalo de qualificação frente à Indústria 4.0. Ações de capacitação técnica e superior são cruciais para aumentar a produtividade e a inovação no setor.',
-                chartData: {
-                    type: 'doughnut',
-                    labels: ['Ens. Médio Completo', 'Ens. Superior Completo', 'Ens. Técnico', 'Outros'],
-                    data: [55, 18, 12, 15],
-                    title: 'Escolaridade da Força de Trabalho'
-                }
-            },
-            opportunities: {
-                title: '✅ Oportunidades',
-                content: `<ul class="space-y-2 list-disc list-inside text-gray-300">
-                    <li><b>Agroindústria 4.0:</b> Adoção de tecnologia para produtos de maior valor agregado.</li>
-                    <li><b>Hub Logístico:</b> Consolidação como centro de distribuição nacional com a Ferrovia Norte-Sul.</li>
-                    <li><b>Bioenergia:</b> Expansão da produção de etanol, biogás e SAF (combustível sustentável de aviação).</li>
-                    <li><b>Polo Farmoquímico:</b> Atração de novos laboratórios e centros de P&D para Anápolis.</li>
-                </ul>`
-            },
-            challenges: {
-                title: '⚠️ Desafios',
-                content: `<ul class="space-y-2 list-disc list-inside text-gray-300">
-                    <li><b>Qualificação Profissional:</b> Déficit de mão de obra para automação, digitalização e IA.</li>
-                    <li><b>Infraestrutura:</b> Necessidade de duplicação de rodovias e melhoria da malha energética.</li>
-                    <li><b>Burocracia e Tributação:</b> Simplificação de processos e reforma tributária são essenciais.</li>
-                    <li><b>Sustentabilidade:</b> Adequação às normas ESG e gestão de resíduos e recursos hídricos.</li>
-                </ul>`
-            },
-            trends: {
-                title: '📈 Tendências',
-                content: `<ul class="space-y-2 list-disc list-inside text-gray-300">
-                    <li><b>Automação e Robótica:</b> Aumento da eficiência e produtividade nas linhas de produção.</li>
-                    <li><b>Digitalização:</b> Uso de IoT, Big Data e IA para gestão de supply chain e manutenção preditiva.</li>
-                    <li><b>Economia Circular:</b> Reutilização de materiais e desenvolvimento de produtos com menor impacto ambiental.</li>
-                    <li><b>Customização em Massa:</b> Produção flexível para atender a nichos de mercado específicos.</li>
-                </ul>`
-            }
-        }
-    };
 
-    const modal = document.getElementById('modal');
-    const modalContent = document.getElementById('modal-content');
-    const modalTitle = document.getElementById('modal-title');
-    const modalBody = document.getElementById('modal-body');
-    const modalClose = document.getElementById('modal-close');
-    let activeChart = null;
-    
-    const buildProjectionHtml = (projData, type = 'number') => {
-        if (!projData || typeof projData.base !== 'number' || typeof projData.growth !== 'number') {
-            return '';
+        const chartConfigs = {};
+
+        function translateElements(lang) {
+            document.querySelectorAll('[data-translate-key]').forEach(el => {
+                const key = el.dataset.translateKey;
+                if (translations[lang][key]) {
+                    el.innerHTML = translations[lang][key];
+                }
+            });
         }
         
-        const projection = calculateProjection(projData.base, projData.growth);
+        function translateCharts(lang) {
+             const enLabels = {
+                growthChart: ['Industry GO', 'Industry BR'],
+                futureSectorsJobsChart: ['Workforce'],
+                futureSectorsEstablishmentsChart: ['No. of Establishments'],
+                companySizeChart: ['% of Jobs', '% of Companies'],
+                exportsProductsChart: ['Share in Exports (%)'],
+                exportsDestinationsChart: ['Destination (%)'],
+                jobsChart: ['Demand for Qualification (thousands)']
+             };
+             const ptLabels = {
+                growthChart: ['Indústria GO', 'Indústria BR'],
+                futureSectorsJobsChart: ['Empregados'],
+                futureSectorsEstablishmentsChart: ['Nº de Estabelecimentos'],
+                companySizeChart: ['% de Empregos', '% de Empresas'],
+                exportsProductsChart: ['Participação nas Exportações (%)'],
+                exportsDestinationsChart: ['Destino (%)'],
+                jobsChart: ['Demanda por Qualificação (milhares)']
+             };
+             const labels = lang === 'en' ? enLabels : ptLabels;
 
-        if (isNaN(projection.value) || isNaN(projection.lower) || isNaN(projection.upper)) {
-            return '';
+             const chartTranslations = {
+                futureSectorsJobsChart: { en: ['F&B', 'Construction', 'Apparel', 'Bioenergy', 'Pharma', 'Mining'], pt: ['Alimentos', 'Construção', 'Vestuário', 'Sucroenerg.', 'Farmacêutico', 'Mineração'] },
+                futureSectorsEstablishmentsChart: { en: ['Construction', 'F&B', 'Apparel', 'Mining', 'Pharma', 'Bioenergy'], pt: ['Construção', 'Alimentos', 'Vestuário', 'Mineração', 'Farmacêutico', 'Sucroenerg.'] },
+                companySizeChart: { en: ['Micro', 'Small', 'Medium', 'Large'], pt: ['Micro', 'Pequenas', 'Médias', 'Grandes']},
+                exportsProductsChart: { en: [wrapLabel('Soy Complex (meal, oil)'), 'Meats (beef, poultry)', 'Ferroalloys', 'Sugars and Molasses', 'Gold'], pt: [wrapLabel('Complexo Soja (farelo, óleo)'), 'Carnes (bovina, aves)', 'Ferroligas', 'Açúcares e Melaços', 'Ouro']},
+                exportsDestinationsChart: { en: ['China', 'European Union', 'USA', 'Argentina', 'Others'], pt: ['China', 'União Europeia', 'EUA', 'Argentina', 'Outros']},
+                jobsChart: { en: [wrapLabel('Production Line Feeders'), wrapLabel('Production Control Technicians'), wrapLabel('Machine Maintenance Mechanics'), wrapLabel('Truck Drivers'), wrapLabel('Butchers and Meat Cutters')], pt: [wrapLabel('Alimentadores de Linha de Produção'), wrapLabel('Técnicos de Controle da Produção'), wrapLabel('Mecânicos de Manutenção de Máquinas'), wrapLabel('Motoristas de Caminhão'), wrapLabel('Magarefes e Açougueiros')]}
+             };
+            
+             Object.entries(chartConfigs).forEach(([chartId, chart]) => {
+                if (labels[chartId]) {
+                    chart.data.datasets.forEach((dataset, index) => {
+                        dataset.label = labels[chartId][index];
+                    });
+                }
+                if(chartTranslations[chartId]){
+                    chart.data.labels = chartTranslations[chartId][lang];
+                }
+                chart.update();
+             });
         }
 
-        const formatFn = type === 'currency' ? formatCurrency : formatNumber;
-        return `
-            <div class="bg-gray-900 p-4 rounded-lg mt-4">
-                <h4 class="font-semibold text-amber-400">Projeção para ${PROJECTION_YEAR}</h4>
-                <p class="text-xl font-bold text-white">${formatFn(projection.value)}</p>
-                <p class="text-sm text-gray-400">Intervalo de Confiança 95%: ${formatFn(projection.lower)} - ${formatFn(projection.upper)}</p>
-            </div>
-        `;
-    };
+        document.querySelectorAll('.lang-toggle button').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const targetLang = e.target.dataset.lang;
+                const toggle = e.target.closest('.lang-toggle');
+                
+                toggle.querySelector('.active').classList.replace('active', 'inactive');
+                e.target.classList.replace('inactive', 'active');
+                
+                translateElements(targetLang);
+                translateCharts(targetLang);
+            });
+        });
 
-    const openModal = (type, key) => {
-        const item = data[type] ? data[type][key] : null;
-        if (!item) return;
 
-        modalTitle.textContent = item.title;
-        let bodyHtml = '';
+        Chart.register(ChartDataLabels);
+        Chart.defaults.set('plugins.datalabels', {
+            color: '#fff',
+            font: {
+                weight: 'bold'
+            }
+        });
+
+        const wrapLabel = (label, maxLength = 16) => {
+            if (typeof label !== 'string' || label.length <= maxLength) return label;
+            const words = label.split(' ');
+            const lines = [];
+            let currentLine = '';
+            for (const word of words) {
+                if ((currentLine + ' ' + word).trim().length > maxLength && currentLine.length > 0) {
+                    lines.push(currentLine.trim());
+                    currentLine = word;
+                } else {
+                    currentLine = (currentLine + ' ' + word).trim();
+                }
+            }
+            if (currentLine) lines.push(currentLine.trim());
+            return lines.length > 0 ? lines : [label];
+        };
         
-        if (item.content) {
-            bodyHtml += `<div>${item.content}</div>`;
-        }
+        const tooltipTitleCallback = (tooltipItems) => {
+            const item = tooltipItems[0];
+            let label = item.chart.data.labels[item.dataIndex];
+            if (Array.isArray(label)) return label.join(' ');
+            return label;
+        };
         
-        if (item.analysis) {
-             bodyHtml += `<div class="text-gray-300">${item.analysis}</div>`;
-        }
-        
-        if (item.projection) {
-             const projType = item.title.toLowerCase().includes('salário') ? 'currency' : 'number';
-             bodyHtml += buildProjectionHtml(item.projection, projType);
-        } else if (data.sectors[key] && data.sectors[key].projection) {
-            bodyHtml += buildProjectionHtml(data.sectors[key].projection.jobs, 'number');
-            bodyHtml += buildProjectionHtml(data.sectors[key].projection.salary, 'currency');
-        }
+        const toThousand = (value) => (value / 1000).toFixed(0) + 'k';
 
-        if (item.chartData) {
-            bodyHtml += `<div class="mt-6"><h3 class="font-semibold text-lg mb-2 text-center">${item.chartData.title}</h3><div class="chart-container-modal"><canvas id="modalChart"></canvas></div></div>`;
-        }
+        const defaultChartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { 
+                legend: { display: false }, 
+                tooltip: { callbacks: { title: tooltipTitleCallback } } 
+            }
+        };
 
+        const brilliantBluesPalette = ['#003366', '#005a9c', '#0077b6', '#00b4d8', '#48cae4', '#90e0ef', '#caf0f8'];
 
-        if (item.source && item.period) {
-             bodyHtml += `<p class="text-xs text-gray-500 mt-6 text-right">Fonte: ${item.source} (${item.period})</p>`;
-        }
-
-        modalBody.innerHTML = bodyHtml;
-        modal.classList.add('active');
-        
-        if (item.chartData) {
-            renderModalChart(item.chartData);
-        }
-    };
-    
-    const renderModalChart = (chartData) => {
-        if (activeChart) {
-            activeChart.destroy();
-        }
-        const ctx = document.getElementById('modalChart').getContext('2d');
-        const isHorizontal = chartData.type === 'bar';
-        activeChart = new Chart(ctx, {
-            type: chartData.type,
+        chartConfigs.growthChart = new Chart(document.getElementById('growthChart'), {
+            type: 'line',
             data: {
-                labels: chartData.labels,
-                datasets: [{
-                    data: chartData.data,
-                    backgroundColor: ['#d97706', '#0ea5e9', '#10b981', '#ef4444', '#8b5cf6', '#64748b'],
-                    borderColor: '#1f1f1f',
-                    borderWidth: chartData.type === 'doughnut' ? 4 : 0,
-                }]
+                labels: ['2021', '2022', '2023', '2024 (Proj.)'],
+                datasets: [
+                    { label: 'Indústria GO', data: [4.8, 3.5, 2.8, 5.6], borderColor: '#005a9c', backgroundColor: '#005a9c20', fill: true, tension: 0.3 },
+                    { label: 'Indústria BR', data: [4.5, 1.6, 1.3, 2.4], borderColor: '#48cae4', backgroundColor: '#48cae420', fill: true, tension: 0.3 }
+                ]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                indexAxis: isHorizontal ? 'y' : 'x',
-                plugins: {
-                    legend: {
-                        display: chartData.type === 'doughnut',
-                        position: 'bottom',
-                    },
-                    datalabels: {
-                        color: '#fff',
-                        anchor: 'end',
-                        align: isHorizontal ? 'end' : 'top',
-                        formatter: (value, context) => {
-                             return chartData.type === 'doughnut' ? `${((value / context.chart.getDatasetMeta(0).total) * 100).toFixed(0)}%` : formatNumber(value);
-                        },
-                        font: {
-                            weight: 'bold',
-                            size: 12
-                        }
-                    }
-                }
-            }
+            options: { ...defaultChartOptions, plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 15, padding: 15 } }, tooltip: { callbacks: { title: tooltipTitleCallback } }, datalabels: { color: '#334155', align: 'top', formatter: (value) => value + '%', } }, scales: { y: { ticks: { callback: value => value + '%' } } } }
         });
-    }
 
-    const closeModal = () => {
-        modal.classList.remove('active');
-        if (activeChart) {
-            activeChart.destroy();
-            activeChart = null;
-        }
-        modalBody.innerHTML = '';
-    };
-
-    document.querySelectorAll('.info-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const type = card.dataset.type;
-            const key = card.dataset.key;
-            openModal(type, key);
+        chartConfigs.futureSectorsJobsChart = new Chart(document.getElementById('futureSectorsJobsChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Alimentos', 'Construção', 'Vestuário', 'Sucroenerg.', 'Farmacêutico', 'Mineração'],
+                datasets: [{ label: 'Empregados', data: [100000, 55000, 45000, 40000, 15000, 10000], backgroundColor: brilliantBluesPalette }]
+            },
+            options: { ...defaultChartOptions, plugins: { ...defaultChartOptions.plugins, datalabels: { formatter: toThousand } } }
         });
-    });
-
-    modalClose.addEventListener('click', closeModal);
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            closeModal();
-        }
-    });
-
-    // Map Interaction Logic
-    const hotspots = document.querySelectorAll('.hotspot');
-    const regionTitle = document.getElementById('region-title');
-    const regionContent = document.getElementById('region-content');
-
-    hotspots.forEach(hotspot => {
-        hotspot.addEventListener('click', () => {
-            hotspots.forEach(h => h.classList.remove('active'));
-            hotspot.classList.add('active');
-
-            const regionKey = hotspot.dataset.regionKey;
-            const regionData = data.region[regionKey];
-
-            if (regionData) {
-                regionTitle.innerHTML = regionData.title;
-                regionContent.innerHTML = regionData.content;
-            }
+        
+        chartConfigs.futureSectorsEstablishmentsChart = new Chart(document.getElementById('futureSectorsEstablishmentsChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Construção', 'Alimentos', 'Vestuário', 'Mineração', 'Farmacêutico', 'Sucroenerg.'],
+                datasets: [{ label: 'Nº de Estabelecimentos', data: [6000, 4500, 4000, 500, 150, 40], backgroundColor: brilliantBluesPalette.slice().reverse() }]
+            },
+            options: { ...defaultChartOptions, plugins: { ...defaultChartOptions.plugins, datalabels: { formatter: (value) => value > 1000 ? (value/1000).toFixed(1)+'k' : value, font: { size: 10 } } } }
         });
-    });
-});
-</script>
 
+        chartConfigs.companySizeChart = new Chart(document.getElementById('companySizeChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Micro', 'Pequenas', 'Médias', 'Grandes'],
+                datasets: [
+                    { label: '% de Empregos', data: [13.5, 22.6, 20.7, 43.3], backgroundColor: '#005a9c' },
+                    { label: '% de Empresas', data: [76.3, 19.3, 3.6, 0.8], backgroundColor: '#48cae4' }
+                ]
+            },
+            options: { ...defaultChartOptions, plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 15, padding: 15 } }, tooltip: { callbacks: { title: tooltipTitleCallback } }, datalabels: { formatter: (value) => value + '%', font: { size: 10 } } }, scales: { y: { ticks: { callback: value => value + '%' } } } }
+        });
+
+        chartConfigs.exportsProductsChart = new Chart(document.getElementById('exportsProductsChart'), {
+            type: 'bar',
+            data: {
+                labels: [wrapLabel('Complexo Soja (farelo, óleo)'), 'Carnes (bovina, aves)', 'Ferroligas', 'Açúcares e Melaços', 'Ouro'],
+                datasets: [{ label: 'Participação nas Exportações (%)', data: [54, 20, 7, 5, 4], backgroundColor: brilliantBluesPalette }]
+            },
+            options: { ...defaultChartOptions, indexAxis: 'y', scales: { x: { ticks: { callback: value => value + '%' } } }, plugins: { ...defaultChartOptions.plugins, datalabels: { color: '#334155', anchor: 'end', align: 'right', formatter: (value) => value + '%' } } }
+        });
+
+        chartConfigs.exportsDestinationsChart = new Chart(document.getElementById('exportsDestinationsChart'), {
+            type: 'pie',
+            data: {
+                labels: ['China', 'União Europeia', 'EUA', 'Argentina', 'Outros'],
+                datasets: [{ label: 'Destino (%)', data: [48.5, 15.2, 8.1, 4.3, 23.9], backgroundColor: brilliantBluesPalette }]
+            },
+            options: { ...defaultChartOptions, plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 15, padding: 15 } }, tooltip: { callbacks: { title: tooltipTitleCallback } }, datalabels: { formatter: (value) => value + '%' } } }
+        });
+        
+        chartConfigs.jobsChart = new Chart(document.getElementById('jobsChart'), {
+            type: 'bar',
+            data: {
+                labels: [
+                    wrapLabel('Alimentadores de Linha de Produção'),
+                    wrapLabel('Técnicos de Controle da Produção'),
+                    wrapLabel('Mecânicos de Manutenção de Máquinas'),
+                    wrapLabel('Motoristas de Caminhão'),
+                    wrapLabel('Magarefes e Açougueiros')
+                ],
+                datasets: [{ label: 'Demanda por Qualificação (milhares)', data: [45000, 38000, 32000, 29000, 25000], backgroundColor: brilliantBluesPalette }]
+            },
+            options: { ...defaultChartOptions, indexAxis: 'y', plugins: { ...defaultChartOptions.plugins, datalabels: { color: '#334155', anchor: 'end', align: 'right', formatter: toThousand } } }
+        });
+    </script>
 </body>
 </html>
 
